@@ -5,7 +5,7 @@
  * in a self-contained single-page PDF without external PDF libraries.
  */
 (function (root) {
-  const PAGE={width:3508,height:2480,pdfWidth:1190.55,pdfHeight:841.89};
+  const PAGE={width:2526,height:1785,pdfWidth:841.89,pdfHeight:595.28,scale:3};
   const COLORS={navy:'#193a5d',navyDark:'#142c49',ink:'#1a3856',sub:'#647e96',
     faint:'#eef3f7',grid:'#dfe8f0',orange:'#e59a53',white:'#ffffff'};
   const MONTHS=[
@@ -72,93 +72,101 @@
     const thai=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
     return d+' '+thai[m-1]+' '+(y+543);
   }
-  function render(ctx,rows,selected,opts,logo){
-    const {width:W,height:H}=PAGE;
-    box(ctx,0,0,W,H,'#ffffff');
-    box(ctx,0,0,W,242,COLORS.navy);
-    box(ctx,0,239,W,9,COLORS.orange);
-    if(logo){
-      box(ctx,87,37,171,171,'#ffffff',86);
-      ctx.drawImage(logo,101,51,143,143);
+
+  // Physical layout coordinates are A4 landscape PDF points.
+  // Render at 3px per point (216dpi), so 15px canvas glyphs print as 15pt.
+  const LAYOUT={left:24,right:817,labelW:397,headTop:137,headH:30,bodyBottom:561};
+  const TITLE_PT=15;
+  function activityLayout(ctx,a) {
+    const lines=textRows(ctx,a.name,LAYOUT.labelW-70,12,TITLE_PT,600);
+    const rowHeight=16+lines.length*18;
+    return {item:a,lines,height:Math.max(34,rowHeight)};
+  }
+  function paginate(ctx,items) {
+    const pages=[];
+    let rows=[],used=0;
+    const available=LAYOUT.bodyBottom-(LAYOUT.headTop+LAYOUT.headH);
+    for(const item of items){
+      const measured=activityLayout(ctx,item);
+      if(measured.height>available)throw Error('ชื่อกิจกรรมยาวเกินขนาดกระดาษ A4');
+      if(rows.length&&used+measured.height>available){
+        pages.push(rows);rows=[];used=0;
+      }
+      rows.push(measured);used+=measured.height;
     }
-    const textX=logo?288:100;
-    draw(ctx,'แผนการดำเนินงานประกันคุณภาพการศึกษา',textX,92,63,'#ffffff',700);
-    draw(ctx,'วิทยาลัยพยาบาลกองทัพเรือ · ปีงบประมาณ 2570',textX,163,36,'#dfeaf4',500);
+    if(rows.length)pages.push(rows);
+    return pages;
+  }
+  function render(ctx,pageRows,selected,opts,logo,pageIndex,pageCount,total){
+    const W=PAGE.pdfWidth,H=PAGE.pdfHeight;
+    const x=LAYOUT.left,right=LAYOUT.right,gridX=x+LAYOUT.labelW;
+    const gridW=right-gridX,monthW=gridW/12;
+    box(ctx,0,0,W,H,'#ffffff');
+    box(ctx,0,0,W,75,COLORS.navy);
+    box(ctx,0,73,W,3,COLORS.orange);
+    if(logo){
+      box(ctx,23,12,55,55,'#ffffff',28);
+      ctx.drawImage(logo,28,17,45,45);
+    }
+    draw(ctx,'แผนการดำเนินงานประกันคุณภาพการศึกษา',90,26,18,'#ffffff',700);
+    draw(ctx,'วิทยาลัยพยาบาลกองทัพเรือ · ปีงบประมาณ 2570',90,52,11.5,'#dce8f3',500);
 
-    const x=98,right=W-98,labelWidth=1445,gridX=x+labelWidth,gridWidth=right-gridX;
-    draw(ctx,'GANTT CHART',x,305,30,COLORS.navy,700);
-    draw(ctx,'ตุลาคม 2569 – กันยายน 2570',x+252,305,26,COLORS.sub,500);
-    draw(ctx,rows.length+' กิจกรรม',right,303,30,COLORS.navy,700,'right');
+    draw(ctx,'GANTT CHART',x,96,11,COLORS.navy,700);
+    draw(ctx,'ตุลาคม 2569 - กันยายน 2570',x+108,96,10,COLORS.sub,500);
+    draw(ctx,'รวม '+total+' กิจกรรม · หน้า '+(pageIndex+1)+'/'+pageCount,right,96,10.5,COLORS.navy,700,'right');
 
-    const legendY=370;
-    let legendX=x;
-    const used=new Set(selected);
+    let lx=x;
     for(const name of selected){
       const color=(opts.colors||{})[name]||'#647e96';
-      box(ctx,legendX,legendY-13,23,23,color,6);
-      draw(ctx,name,legendX+34,legendY,24,COLORS.ink,600);
-      legendX+=Math.min(340,Math.max(187,65+name.length*26));
+      box(ctx,lx,114,8,8,color,2);
+      draw(ctx,name,lx+13,118,9,COLORS.ink,600);
+      lx+=Math.min(130,Math.max(68,24+String(name).length*10));
     }
-    if(!used.size)draw(ctx,'ไม่ได้เลือกแผนงาน',x,legendY,24,COLORS.sub,400);
-    draw(ctx,'เรียงตามวันที่เริ่มต้น',right,legendY,24,COLORS.sub,400,'right');
+    draw(ctx,'เรียงตามวันที่เริ่มต้น',right,119,9,COLORS.sub,400,'right');
 
-    const headY=427,headH=75,firstRow=headY+headH;
-    box(ctx,x,headY,right-x,headH,COLORS.navyDark,9);
-    draw(ctx,'ลำดับ / รายการกิจกรรม',x+25,headY+headH/2,27,'#ffffff',700);
-    const monthW=gridWidth/12;
+    box(ctx,x,LAYOUT.headTop,right-x,LAYOUT.headH,COLORS.navyDark,4);
+    draw(ctx,'ลำดับ / รายการกิจกรรม',x+13,LAYOUT.headTop+15,10,'#ffffff',700);
     MONTHS.forEach(([month,year],i)=>{
-      const bx=gridX+monthW*(i+.5);
-      draw(ctx,month+' '+year,bx,headY+headH/2,26,'#ffffff',600,'center');
-      if(i>0)line(ctx,gridX+monthW*i,headY,gridX+monthW*i,firstRow,'#45617a',1.7);
+      const cx=gridX+monthW*(i+.5);
+      draw(ctx,month+' '+year,cx,LAYOUT.headTop+15,8.6,'#ffffff',600,'center');
+      if(i>0)line(ctx,gridX+monthW*i,LAYOUT.headTop,gridX+monthW*i,LAYOUT.headTop+LAYOUT.headH,'#45617a',.55);
     });
 
-    const footerTop=H-141;
-    const available=footerTop-firstRow-12;
-    const rowH=rows.length?Math.min(87,available/rows.length):87;
-    const fontSize=Math.max(15,Math.min(27,rowH*.325));
-    const metaSize=Math.max(11,Math.min(20,rowH*.225));
-    const twoLine=rowH>=66;
-    const rowBottom=firstRow+rows.length*rowH;
-    for(let i=0;i<rows.length;i++){
-      const item=rows[i],top=firstRow+i*rowH;
+    let top=LAYOUT.headTop+LAYOUT.headH;
+    for(let i=0;i<pageRows.length;i++){
+      const {item,lines:titles,height:h}=pageRows[i];
+      const index=(opts.firstRow||0)+i+1;
       const color=(opts.colors||{})[item.track]||'#6485a2';
-      if(i%2===1)box(ctx,x,top,right-x,rowH,'#f6f9fc');
-      if(i===0)line(ctx,x,top,right,top,COLORS.grid,1.8);
-      line(ctx,x,top+rowH,right,top+rowH,COLORS.grid,1.6);
-      draw(ctx,String(i+1).padStart(2,'0'),x+25,top+rowH/2,metaSize+2,'#8092a7',600);
-      box(ctx,x+94,top+Math.max(8,(rowH-42)/2),6,Math.min(42,rowH-15),color,3);
-      const titleX=x+117,titleMax=labelWidth-149;
-      const titleLines=textRows(ctx,item.name,titleMax,twoLine?2:1,fontSize,600);
-      const titleY=top+(twoLine?rowH*.235:rowH*.36);
-      const lineStep=Math.min(30,fontSize*1.12);
-      titleLines.forEach((t,k)=>draw(ctx,t,titleX,titleY+k*lineStep,fontSize,COLORS.ink,600));
-      if(twoLine){
-        const meta=item.track+'  ·  '+shortDate(item.startDate)+'  ·  '+(STATUS[item.status]||'');
-        draw(ctx,meta,titleX,top+rowH-16,metaSize,COLORS.sub,400);
+      if(i%2===1)box(ctx,x,top,right-x,h,'#f6f9fc');
+      line(ctx,x,top+h,right,top+h,COLORS.grid,.55);
+      draw(ctx,String(index).padStart(2,'0'),x+12,top+h/2,8.5,'#788da4',600);
+      box(ctx,x+36,top+8,3,h-16,color,1.5);
+      for(let k=0;k<titles.length;k++){
+        draw(ctx,titles[k],x+49,top+12+k*18,TITLE_PT,COLORS.ink,600);
       }
-      // Calendar grid.
+      const meta=item.track+' · '+shortDate(item.startDate)+' · '+(STATUS[item.status]||'');
+      draw(ctx,meta,x+49,top+h-7.5,8.1,COLORS.sub,400);
       for(let j=0;j<=12;j++){
         const gx=gridX+j*monthW;
-        line(ctx,gx,top,gx,top+rowH,j===0?'#b7c8d7':COLORS.grid,j===0?2.1:1.3);
+        line(ctx,gx,top,gx,top+h,j===0?'#b5c7d8':COLORS.grid,j===0?.8:.4);
       }
-      const sx=gridX+gridWidth*dateFraction(item.startDate);
-      const ex=gridX+gridWidth*dateFraction(item.endDate,true);
-      const bw=Math.max(12,ex-sx);
-      const barH=Math.max(8,Math.min(22,rowH*.29));
-      box(ctx,sx,top+(rowH-barH)/2,bw,barH,color,Math.min(barH/2,7));
-      if(bw>65&&item.status==='done')box(ctx,sx+bw-9,top+(rowH-barH)/2,9,barH,'#ffffff66',2);
+      const bx=gridX+gridW*dateFraction(item.startDate);
+      const ex=gridX+gridW*dateFraction(item.endDate,true);
+      const bw=Math.max(3,ex-bx);
+      const bh=9.5;
+      box(ctx,bx,top+(h-bh)/2,bw,bh,color,3);
+      top+=h;
     }
-    if(!rows.length)draw(ctx,'ไม่มีรายการกิจกรรมในแผนที่เลือก',x+20,firstRow+84,31,COLORS.sub,500);
-    if(rows.length>0)line(ctx,x,firstRow,right,firstRow,COLORS.grid,1.4);
-    // Footer anchored for consistent A3 page regardless of data count.
-    line(ctx,x,footerTop+15,right,footerTop+15,'#d5e0ea',2);
-    draw(ctx,'คณะกรรมการประกันคุณภาพการศึกษา',x,footerTop+65,24,COLORS.sub,600);
-    draw(ctx,'A3 แนวนอน · 1 หน้า · Sarabun',right,footerTop+65,22,COLORS.sub,400,'right');
-    if(rowBottom>footerTop+4)throw Error('จำนวนกิจกรรมมากเกินพื้นที่ 1 หน้า');
+    line(ctx,x,572,right,572,'#d5e0ea',.7);
+    draw(ctx,'คณะกรรมการประกันคุณภาพการศึกษา',x,582,8.7,COLORS.sub,600);
+    draw(ctx,'A4 แนวนอน · Sarabun · '+(pageIndex+1)+'/'+pageCount,right,582,8.7,COLORS.sub,400,'right');
   }
   function ascii(str){return new TextEncoder().encode(str);}
-  function makePdf(jpg,width,height){
-    // PDF 1.4: One A3 landscape page with a full-bleed, high-resolution DCT image.
+
+  function makePdf(images){
+    // One A4 landscape page per JPEG. Multi-page PDF without external libraries.
+    if(images instanceof Uint8Array)throw Error('makePdf expects an array of JPEG page images');
+    if(!Array.isArray(images)||!images.length)throw Error('ไม่มีหน้า PDF');
     const parts=[],offsets=[0];let position=0;
     function write(v){const bytes=typeof v==='string'?ascii(v):v;parts.push(bytes);position+=bytes.byteLength;}
     const w=PAGE.pdfWidth,h=PAGE.pdfHeight;
@@ -166,16 +174,27 @@
     function openObj(n){offsets[n]=position;write(n+' 0 obj\n');}
     function closeObj(){write('\nendobj\n');}
     openObj(1);write('<< /Type /Catalog /Pages 2 0 R >>');closeObj();
-    openObj(2);write('<< /Type /Pages /Kids [3 0 R] /Count 1 >>');closeObj();
-    openObj(3);write('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+w+' '+h+'] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>');closeObj();
-    openObj(4);write('<< /Type /XObject /Subtype /Image /Width '+width+' /Height '+height+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+jpg.length+' >>\nstream\n');
-    write(jpg);write('\nendstream');closeObj();
-    const commands='q\n'+w+' 0 0 '+h+' 0 0 cm\n/Im0 Do\nQ\n';
-    openObj(5);write('<< /Length '+ascii(commands).length+' >>\nstream\n'+commands+'endstream');closeObj();
+    const kids=images.map((_,i)=>(3+i*3)+' 0 R').join(' ');
+    openObj(2);write('<< /Type /Pages /Kids ['+kids+'] /Count '+images.length+' >>');closeObj();
+    images.forEach((image,i)=>{
+      const page=3+i*3,object=page+1,content=page+2;
+      openObj(page);
+      write('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+w+' '+h+'] /Resources << /XObject << /Im0 '+object+' 0 R >> >> /Contents '+content+' 0 R >>');
+      closeObj();
+      openObj(object);
+      write('<< /Type /XObject /Subtype /Image /Width '+image.width+' /Height '+image.height+
+        ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+image.jpg.length+' >>\nstream\n');
+      write(image.jpg);write('\nendstream');closeObj();
+      const commands='q\n'+w+' 0 0 '+h+' 0 0 cm\n/Im0 Do\nQ\n';
+      openObj(content);
+      write('<< /Length '+ascii(commands).length+' >>\nstream\n'+commands+'endstream');
+      closeObj();
+    });
+    const totalObjects=2+images.length*3;
     const xrefPosition=position;
-    write('xref\n0 6\n0000000000 65535 f \n');
-    for(let i=1;i<=5;i++)write(String(offsets[i]).padStart(10,'0')+' 00000 n \n');
-    write('trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n'+xrefPosition+'\n%%EOF\n');
+    write('xref\n0 '+(totalObjects+1)+'\n0000000000 65535 f \n');
+    for(let i=1;i<=totalObjects;i++)write(String(offsets[i]).padStart(10,'0')+' 00000 n \n');
+    write('trailer\n<< /Size '+(totalObjects+1)+' /Root 1 0 R >>\nstartxref\n'+xrefPosition+'\n%%EOF\n');
     return new Blob(parts,{type:'application/pdf'});
   }
   async function loadLogo(){
@@ -186,37 +205,50 @@
       img.src='assets/rtncn-logo.png?v=20261107b';
     });
   }
+
   async function download(activities,selected,opts={}){
     if(!Array.isArray(activities)||!activities.length)throw Error('ไม่มีรายการกิจกรรม');
-    if(activities.length>70)throw Error('มากกว่า 70 กิจกรรมต่อหน้า กรุณาเลือกเฉพาะบางแผนเพื่อให้ PDF อ่านได้ชัดเจน');
-    // Ensure Sarabun is available before rasterising Thai. Normal page CSS loads it from Google Fonts.
-    if(document.fonts){
-      await Promise.all([
-        document.fonts.load('700 63px Sarabun'),
-        document.fonts.load('600 27px Sarabun'),
-        document.fonts.load('400 22px Sarabun')
+    if(!document.fonts)throw Error('เบราว์เซอร์ไม่รองรับการตรวจสอบฟอนต์ Sarabun');
+    try{
+      const faces=await Promise.all([
+        document.fonts.load('700 18px Sarabun','แผนการดำเนินงานประกันคุณภาพการศึกษา'),
+        document.fonts.load('600 15px Sarabun','กิจกรรมวิทยาลัยพยาบาลกองทัพเรือ'),
+        document.fonts.load('400 9px Sarabun','คณะกรรมการประกันคุณภาพการศึกษา')
       ]);
       await document.fonts.ready;
-    }
-    const sorted=[...activities].sort((a,b)=>a.startDate.localeCompare(b.startDate)||String(a.id).localeCompare(String(b.id)));
+      if(faces.some(arr=>!arr||arr.length===0)||
+        !document.fonts.check('600 15px Sarabun','กิจกรรม')){
+        throw Error('ตรวจสอบการโหลดฟอนต์ไม่สำเร็จ');
+      }
+    }catch(err){throw Error('ไม่สามารถโหลด Sarabun กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');}
+    const ordered=[...activities].sort((a,b)=>a.startDate.localeCompare(b.startDate)||String(a.id).localeCompare(String(b.id)));
     const canvas=document.createElement('canvas');
     canvas.width=PAGE.width;canvas.height=PAGE.height;
     const ctx=canvas.getContext('2d',{alpha:false});
     if(!ctx)throw Error('อุปกรณ์ไม่รองรับการสร้าง PDF');
-    render(ctx,sorted,selected,opts,await loadLogo());
-    const jpg=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.95));
-    if(!jpg)throw Error('แปลงข้อมูล Gantt เป็น PDF ไม่สำเร็จ');
-    const pdf=makePdf(new Uint8Array(await jpg.arrayBuffer()),canvas.width,canvas.height);
+    ctx.scale(PAGE.scale,PAGE.scale);
+    const pages=paginate(ctx,ordered);
+    const logo=await loadLogo();
+    const images=[];
+    let firstRow=0;
+    for(let i=0;i<pages.length;i++){
+      const pageRows=pages[i];
+      render(ctx,pageRows,selected,{...opts,firstRow},logo,i,pages.length,ordered.length);
+      const jpg=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.94));
+      if(!jpg)throw Error('สร้างหน้า PDF ไม่สำเร็จ');
+      images.push({jpg:new Uint8Array(await jpg.arrayBuffer()),width:canvas.width,height:canvas.height});
+      firstRow+=pageRows.length;
+    }
+    const pdf=makePdf(images);
     const url=URL.createObjectURL(pdf);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download='QA2570_Gantt_'+(selected.length===1?selected[0].replace(/[^\wก-๙-]/g,''):'AllPlans')+'.pdf';
-    a.style.display='none';
-    document.body.append(a);
-    a.click();
-    a.remove();
+    const link=document.createElement('a');
+    link.href=url;
+    link.download='QA2570_Gantt_A4_'+(selected.length===1?selected[0].replace(/[^\wก-๙-]/g,''):'AllPlans')+'.pdf';
+    link.style.display='none';
+    document.body.append(link);
+    link.click();link.remove();
     setTimeout(()=>URL.revokeObjectURL(url),30000);
-    return {bytes:pdf.size,rows:sorted.length,pages:1};
+    return {bytes:pdf.size,rows:ordered.length,pages:pages.length,paper:'A4 landscape',font:'Sarabun',titlePt:TITLE_PT};
   }
-  root.QAPdf={download,makePdf,PAGE};
+  root.QAPdf={download,makePdf,PAGE,paginate,TITLE_PT};
 })(window);

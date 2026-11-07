@@ -165,7 +165,7 @@ if(hit.hasAttribute('data-confirm-delete')){
  try{
   if(!window.QAPdf)throw Error('ตัวสร้าง PDF ยังโหลดไม่สำเร็จ');
   await window.QAPdf.download(arr,chosenPlanNames(),{colors:{'สมศ.':'#427ead','EdPEx':'#e28c39','สภาการพยาบาล':'#329b79','AUN-QA':'#8974b5'}});
-  notify('ดาวน์โหลด Gantt PDF หน้าเดียวแล้ว');
+  notify('ดาวน์โหลด Gantt PDF ขนาด A4 แล้ว');
  }catch(err){notify('ไม่สามารถสร้าง PDF: '+err.message)}
  finally{btn.disabled=false;btn.textContent='⇩ ดาวน์โหลด Gantt PDF'}
  return;
