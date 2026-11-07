@@ -506,3 +506,53 @@ body{font-size:15px;line-height:1.5}
 @media print {
  .date-filter-bar{display:none!important}
 }
+
+
+/* QA2570: multi-plan selection & chronological unified Gantt */
+.filters{
+  grid-template-columns:minmax(180px,1.8fr) minmax(175px,1.25fr) minmax(120px,.8fr) minmax(110px,.7fr) auto;
+}
+.multi-plan-bar{
+  display:flex;align-items:center;flex-wrap:wrap;gap:9px;
+  padding:10px 15px;background:#f8fafc;
+  border-top:1px solid #e4eaf0;
+  border-bottom:1px solid #e4eaf0;
+}
+.multi-plan-label{font-size:12px;color:#526f89;font-weight:700;margin-right:3px}
+.multi-plan-btn{
+  min-height:32px;display:inline-flex;align-items:center;gap:6px;
+  border:1px solid #d4dfeb;background:#fff;color:#536a80;
+  border-radius:8px;padding:5px 12px;font:600 13px Sarabun,"TH Sarabun New",Tahoma,sans-serif;
+  cursor:pointer;transition:background-color .16s,border-color .16s;
+}
+.multi-plan-btn:hover{background:#f0f5fa;border-color:#a8bfda}
+.multi-plan-btn.active{font-weight:700;background:#eaf1fa;color:#24557d;border-color:#7da7ce}
+.multi-plan-btn.color-S.active{background:#eaf2fa;color:#28618d;border-color:#74a4d2}
+.multi-plan-btn.color-E.active{background:#fff3e8;color:#ac6225;border-color:#e7ae7a}
+.multi-plan-btn.color-C.active{background:#eaf7f1;color:#21785a;border-color:#81c3a4}
+.multi-plan-btn.color-A.active{background:#f3eef9;color:#76579e;border-color:#b5a1d0}
+.multi-plan-btn small{font-size:11px;color:inherit;opacity:.72}
+.multi-plan-btn .dot{width:8px;height:8px;flex:none}
+.multi-plan-help{margin-left:auto;font-size:12px;color:#70869c;white-space:nowrap}
+.gantt-row .task-subtitle .dot{display:inline-block;vertical-align:middle;margin-right:6px;width:7px;height:7px}
+.gantt-head .sticky-cell{font-weight:700}
+.gantt-row.row-S .gantt-bar{background:#427ead}
+.gantt-row.row-E .gantt-bar{background:#e28c39}
+.gantt-row.row-C .gantt-bar{background:#329b79}
+.gantt-row.row-A .gantt-bar{background:#8974b5}
+.btn-pdf{background:#fff;color:#234e76;border-color:#b6cadb;font-weight:700}
+.btn-pdf:hover{background:#f0f6fc;border-color:#729cbd}
+.btn-pdf:disabled{opacity:.7;cursor:wait}
+@media(max-width:1100px){
+  .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .filters .search-shell{grid-column:1/-1}
+  .filters .clear{grid-column:2}
+  .multi-plan-help{flex-basis:100%;margin-left:0}
+}
+@media(max-width:600px){
+  .multi-plan-bar{padding:10px;gap:7px}
+  .multi-plan-label{flex-basis:100%}
+  .multi-plan-btn{font-size:12.5px;padding:5px 9px;min-height:34px}
+  .multi-plan-help{font-size:11px}
+  .btn-pdf{font-size:12px}
+}

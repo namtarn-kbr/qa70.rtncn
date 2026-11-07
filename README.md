@@ -97,3 +97,17 @@ After publishing, open the GAS `/exec` URL in a browser; it should show:
 (Additional `message` may appear.) Do not paste the `QA_API_SECRET` anywhere outside GAS Script Properties and Vercel server-side Secrets.
 Deletion removes the matching activity and **link metadata** from the Sheet, adds an Audit_Log entry, but does not delete underlying Google Drive files.
 
+
+
+## Multi-plan Gantt chart and single-page PDF (2026-11-07)
+
+The QA2570 website now offers multi-select plan chips rather than a single plan dropdown:
+- **ทุกแผน** shows every populated plan.
+- Choose an individual plan and add other plans (e.g., **สมศ. + EdPEx**) without losing the original plan's data.
+- Gantt activities are displayed in **one combined list, sorted by start date**, even when several plans are selected; no separate plan groups or subheadings.
+- The timeline bars keep their plan-specific blue/orange/green/purple colors.
+- The previous **month and date-range filters have been removed**, per the agreed UX.
+
+**ดาวน์โหลด Gantt PDF** generates an A3 landscape PDF **as a single page** directly in the browser, using high-resolution canvas rendering with **Sarabun** (loaded through the existing Google Fonts CSS), the official college emblem, a 12-month timeline, plan-color legend and institutional footer. Text and row height adapt to the selected activity count. The one-page format is intended for approximately 1–70 activities; if more than 70 are displayed, users are asked to select fewer plans to preserve readability.
+
+Implementation: `pdf-export.js` is included in the static Vercel `public/` build by `build.js`. The PDF contains **one 3508×2480 JPEG image within a single A3 PDF page** so Thai glyph shaping remains visually consistent; its text is image-based rather than selectable. No additional backend service or GAS change is necessary for PDF export. The PDF reflects the currently selected plans and other active activity filters.

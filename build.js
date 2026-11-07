@@ -7,6 +7,7 @@ const output = path.join(__dirname, 'public');
 const files = [
   'index.html',
   'app.js',
+  'pdf-export.js',
   'styles.css',
   'assets/rtncn-logo.png',
 ];
