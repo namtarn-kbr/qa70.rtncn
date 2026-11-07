@@ -9,12 +9,19 @@ module.exports=async(req,res)=>{
       return json(res,200,{activities:data.activities,persistent:data.persistent});
     }catch(e){console.error('GAS read failed',e.message);return json(res,503,{error:'ไม่สามารถอ่านข้อมูลจาก Google Apps Script ได้'});}
   }
-  if(!['POST','PATCH'].includes(req.method))return json(res,405,{error:'Method not allowed'});
+  if(!['POST','PATCH','DELETE'].includes(req.method))return json(res,405,{error:'Method not allowed'});
   if(!allowedOrigin(req))return json(res,403,{error:'Origin ไม่ได้รับอนุญาต'});
   if(!configured())return json(res,503,{error:'ยังไม่ได้ตั้งค่าการเชื่อมต่อ Google Apps Script และรหัสลับ'});
   if(!pinOkay(pinHeader(req)))return json(res,401,{error:'รหัสผ่านไม่ถูกต้อง'});
   try{
     const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
+    if(req.method==='DELETE'){
+      const id=String(body?.id||'');
+      if(!/^[a-zA-Z0-9_-]{1,60}$/.test(id))return json(res,400,{error:'รหัสกิจกรรมไม่ถูกต้อง'});
+      const result=await gas.call('deleteActivity',{id});
+      if(result.deletedId!==id||!Array.isArray(result.activities))throw Error('Apps Script ไม่ยืนยันการลบกิจกรรม');
+      return json(res,200,{success:true,persistent:true,deletedId:id,activities:sortRows(result.activities)});
+    }
     const data=validation(body);
     let result;
     if(req.method==='POST'){

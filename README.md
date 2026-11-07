@@ -26,11 +26,32 @@ The website does not upload binary evidence files.
 
 No Google Cloud Console, Service Account JSON, `GOOGLE_CLIENT_EMAIL`, or `GOOGLE_PRIVATE_KEY` is required by this GAS implementation.
 
+## Update the deployed Google Apps Script before deleting activities
+
+**This repository cannot automatically edit the separately deployed Apps Script project.**
+Update the current Apps Script **Code.gs** with the full `QA2570_GAS_Code_v2.gs` provided in the conversation, then select:
+
+**Apps Script → Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy**.
+
+Use **Manage deployments** rather than New deployment so the existing `/exec` URL continues to work. The `QA_API_SECRET` Script Property does not need to be changed.
+
+The new `deleteActivity` action:
+- Requires authenticated POST from the Vercel server, same shared secret as existing operations
+- Takes an activity ID; deletes its row from `Activities` and its matching document links from `Attachments`
+- Appends an `Audit_Log` entry (`DELETE_ACTIVITY`) with the deleted activity and linked evidence metadata
+- Does **not** remove the underlying files from Google Drive
+- Responds with `deletedId`, the new activities array and `persistent:true`
+
+The website shows a separate delete confirmation; on successful create/update/delete, it closes the dialog and shows a Thai success toast. The left sidebar footer attributes “คณะกรรมการประกันคุณภาพการศึกษา”.
+
+The website's `DELETE /api/activities` endpoint will report an error until the Apps Script deployment supports `deleteActivity`.
+
 ## API routes
 
 - `GET /api/activities` → GAS `list` (read-only, no PIN, secret stays on server)
 - `POST /api/activities` → GAS `createActivity` (edit PIN required)
 - `PATCH /api/activities` → GAS `updateActivity` (edit PIN required)
+- `DELETE /api/activities` → GAS `deleteActivity` (edit PIN required, deletes linked evidence entries but not Drive files)
 - `POST /api/attachments` → GAS `addLink`, `renameLink`, `replaceLink`, `deleteLink` (edit PIN required)
 - `POST /api/verify-pin` → verifies edit PIN for the web UI
 
