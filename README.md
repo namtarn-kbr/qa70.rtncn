@@ -1,49 +1,53 @@
-# QA 2570 – ฐานข้อมูล Google Sheets / หลักฐาน Google Drive
+# QA 2570 – RTNCN Quality Assurance
 
-เว็บไซต์: https://namtarn-qa70-rtncn.vercel.app
+- Website: https://namtarn-qa70-rtncn.vercel.app
+- Google Sheets database: https://docs.google.com/spreadsheets/d/1eHfeDHKDOvxD4usf4rlkDH_NXwG5v0UFfCPPqiSu-6c/edit
+- Google Apps Script Web App: https://script.google.com/macros/s/AKfycbxAFSY-FPBijhqCi-DKpwXxe5_u_EToz7hdOTtYw9FJAj4Cj4zB1qOT5XJPTyEVp8pC-w/exec
 
-ฐานข้อมูล: https://docs.google.com/spreadsheets/d/1eHfeDHKDOvxD4usf4rlkDH_NXwG5v0UFfCPPqiSu-6c/edit
+## Architecture
 
-## สถานะการเชื่อมต่อ
+Browser → Vercel API (edit PIN, input validation, server secret) → GAS Web App (QA_API_SECRET, LockService, Sheet access) → Google Sheets.
 
-ซอร์สโค้ดรองรับ Google Sheets API แล้ว แต่ **ระบบจะใช้ข้อมูลตัวอย่าง 21 กิจกรรมชั่วคราวจนกว่า Google Cloud Service Account จะได้รับอนุญาต** และมีการตั้งค่า Environment Variables ทั้งหมดบน Vercel
+Google Sheets is the **single source of truth** for activity data; existing 21 activities are already seeded in its `Activities` tab.
+All evidence attachments are **Google Drive links only**, stored in the `Attachments` tab.
+Changes are written to `Audit_Log` by GAS; `Plans` remains available for four QA tracks.
+The website does not upload binary evidence files.
 
-## โครงสร้างฐานข้อมูล
+## Configure once, securely
 
-- `Plans`: แผน 4 ประเภท สี และลิงก์โฟลเดอร์
-- `Activities`: ชื่อกิจกรรม รายละเอียด วันเริ่ม/สิ้นสุด ผู้รับผิดชอบ สถานะ รหัสกิจกรรม
-- `Attachments`: รหัสกิจกรรม ชื่อเอกสาร และ HTTPS Google Drive URL เท่านั้น ไม่อัปโหลดไบนารี
-- `Audit_Log`: ประวัติการเพิ่ม/แก้ไขกิจกรรม และลิงก์เอกสาร
+1. In the **bound Apps Script** project, open Project Settings → Script properties, and set `QA_API_SECRET` to a long random secret of at least 32 characters. Do not paste this secret into chat, HTML, GitHub, or a client-side file.
+2. Deploy Apps Script as a **Web app**, Execute as **Me**, access **Anyone** (if approved by the organization's policy). The GAS code checks the shared secret in the POST body for every data operation.
+3. In Vercel → Project → Settings → Environment Variables:
+   - `GAS_WEB_APP_URL`: the publicly available `/exec` URL (already configured).
+   - `GAS_API_SECRET`: the **exact same** secret as `QA_API_SECRET` in GAS, stored as a **Secret/Encrypted** server-only variable (still needs to be set).
+   - `EDIT_PIN`: existing server-side edit PIN (already configured).
+4. Deploy production again **after saving GAS_API_SECRET** so the Functions receive it.
+5. Verify that `GET /api/activities` returns `persistent: true` and 21 activities before changing any records. Then add one test activity or link through the UI and verify the corresponding Sheet. Do not use real sensitive patient data.
 
-ระบบจะอ่านกิจกรรมและเอกสารแนบจาก Google Sheets เมื่อเปิดหน้าเว็บ โดยอัปเดตผ่าน Vercel API หลังได้รับการยืนยันรหัสผ่าน
+No Google Cloud Console, Service Account JSON, `GOOGLE_CLIENT_EMAIL`, or `GOOGLE_PRIVATE_KEY` is required by this GAS implementation.
 
-## การเปิดใช้งาน Google Cloud
+## API routes
 
-1. เปิด https://console.cloud.google.com และเลือกหรือสร้าง Google Cloud Project ของหน่วยงาน
-2. เปิด APIs & Services → Library → เปิด **Google Sheets API**
-3. ไปที่ IAM & Admin → Service Accounts → Create service account (เช่น `qa70-sheets-access`)
-4. สร้าง JSON key ของ Service Account **ภายใต้การควบคุมของผู้ดูแล** (หากนโยบายองค์กรอนุญาต) และจัดเก็บอย่างปลอดภัย
-5. เปิด Google Sheets ฐานข้อมูล กด Share และเพิ่มอีเมล Service Account (`...@...iam.gserviceaccount.com`) เป็น **Editor** เฉพาะชีตนี้ ไม่ต้องแชร์สาธารณะ
+- `GET /api/activities` → GAS `list` (read-only, no PIN, secret stays on server)
+- `POST /api/activities` → GAS `createActivity` (edit PIN required)
+- `PATCH /api/activities` → GAS `updateActivity` (edit PIN required)
+- `POST /api/attachments` → GAS `addLink`, `renameLink`, `replaceLink`, `deleteLink` (edit PIN required)
+- `POST /api/verify-pin` → verifies edit PIN for the web UI
 
-> หาก Google Cloud ของหน่วยงานห้ามสร้าง Service Account keys ควรพิจารณา Workload Identity Federation / โซลูชันไร้กุญแจแทน และปรับส่วนยืนยันตัวตนใน API ก่อนใช้งาน
+GAS accepts authenticated POST requests with JSON `{ "secret": QA_API_SECRET, "action": "list", ... }`.
+Vercel never exposes this secret to browser JavaScript or response JSON.
 
-## Vercel Environment Variables
+## Safety and fallback
 
-Project → Settings → Environment Variables:
+Until `GAS_API_SECRET` is configured, the API returns bundled activity data with `persistent: false`, and changes in the browser remain **temporary**. Server-side writes return HTTP 503.
+If the GAS connection is configured but fails, read requests return HTTP 503 rather than falsely reporting permanent storage.
 
-- `GOOGLE_SHEET_ID`: ID ของไฟล์ชีต (เป็นค่าที่ไม่เป็นความลับ ตั้งไว้แล้ว)
-- `GOOGLE_CLIENT_EMAIL`: ค่า `client_email` จาก JSON key
-- `GOOGLE_PRIVATE_KEY`: ค่า `private_key` จาก JSON key (**Secret**, เก็บใน Vercel เท่านั้น; รองรับทั้ง newline จริงและ escaped `\n`)
-- `EDIT_PIN`: รหัสสำหรับแก้ไขข้อมูล (ตั้งค่าไว้แล้วในโปรเจกต์นี้)
+Existing edit PIN access is shared and does not identify individuals; GAS's `Audit_Log` identifies edits as the shared system administrator, not a unique person. For more sensitive data, add personal sign-in with access controls, better rate limiting, and least-privilege policies. Google Drive document access is governed by each Drive file's permissions.
 
-เพิ่มค่า Secret ใน Vercel เอง ไม่ส่ง Private Key เข้าห้องสนทนา ไม่ commit หรือวางใน HTML / JavaScript ฝั่งเบราว์เซอร์
+## Developer
 
-ตั้งค่าครบแล้ว Deploy ใหม่ และทดสอบ `GET /api/activities` ว่าส่ง `persistent: true` และ 21 กิจกรรม จากนั้นลองเพิ่มกิจกรรมทดสอบและตรวจใน Sheets
-
-## ข้อจำกัด / ความปลอดภัย
-
-- เว็บไซต์เปิดให้อ่านได้ แต่การแก้ไขต้องใช้ PIN ซึ่งยังไม่ใช่ระบบบัญชีผู้ใช้รายบุคคล
-- `Audit_Log.Actor` จึงระบุได้แค่ผู้ดูแลผ่านรหัส ไม่ใช่ชื่อคนจริง
-- การเขียน Google Sheets ไม่ใช่ธุรกรรมฐานข้อมูลแบบ atomic; หากหลายคนแก้ไขพร้อมกันควรเพิ่มกลไกป้องกันความขัดแย้ง
-- ต้องกำหนดสิทธิ์ Google Drive ของแต่ละไฟล์ตามนโยบายหน่วยงาน การมีลิงก์ไม่เท่ากับมีสิทธิ์เปิดดู
-- ไม่มีการจัดเก็บไฟล์ไบนารีใน GitHub หรือ Google Sheets; ผู้ดูแลอัปโหลดไฟล์ไป Drive ก่อนแล้วเพิ่มลิงก์ในเว็บไซต์
+```bash
+npm ci
+npm test
+npm run build
+```
