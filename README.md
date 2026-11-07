@@ -1,94 +1,49 @@
-# ระบบประกันคุณภาพการศึกษา · วิทยาลัยพยาบาลกองทัพเรือ (QA 2570)
+# QA 2570 – ฐานข้อมูล Google Sheets / หลักฐาน Google Drive
 
-เว็บไซต์รวม **Dashboard + แผนการดำเนินงาน Gantt + คลังหลักฐาน** ประจำปี **ต.ค. 2569–ก.ย. 2570** พร้อมโลโก้สถาบัน, การ์ดสรุป, ตัวกรอง, มุมมอง Gantt/ตาราง/รายการ และแบบฟอร์มเพิ่มหรือแก้ไขกิจกรรม
+เว็บไซต์: https://namtarn-qa70-rtncn.vercel.app
 
-## UX/UI
+ฐานข้อมูล: https://docs.google.com/spreadsheets/d/1eHfeDHKDOvxD4usf4rlkDH_NXwG5v0UFfCPPqiSu-6c/edit
 
-- **Sarabun** ภาษาไทย/อังกฤษ ทั้งระบบ โหลดจาก Google Fonts CDN (ไม่แนบไฟล์ฟอนต์)
-- ขนาด: Desktop หัวข้อ 30–32px / เนื้อหา 17px / ปุ่มและตัวกรอง 15–16px; Tablet หัวข้อ 27px; Mobile หัวข้อ 24px / เนื้อหา 16px
-- สีสถาบัน: กรมท่า–ส้ม, สมศ. = น้ำเงิน, EdPEx = ส้ม, สภาการพยาบาล = เขียว, AUN-QA = ม่วง
-- รองรับ PC/Tablet/Mobile; Gantt เลื่อนแนวนอนเฉพาะพื้นที่กราฟ
-- รายการหลักชื่อย่อ; คลิกดูรายละเอียด วันที่ ผู้รับผิดชอบ สถานะ และเอกสาร
+## สถานะการเชื่อมต่อ
 
-## ข้อมูลเริ่มต้น
+ซอร์สโค้ดรองรับ Google Sheets API แล้ว แต่ **ระบบจะใช้ข้อมูลตัวอย่าง 21 กิจกรรมชั่วคราวจนกว่า Google Cloud Service Account จะได้รับอนุญาต** และมีการตั้งค่า Environment Variables ทั้งหมดบน Vercel
 
-มี **21 กิจกรรม** ตรงตามตารางที่ผู้ใช้งานให้ (สมศ. 13 / EdPEx 8) รวมรายละเอียด วันเริ่มและสิ้นสุด ผู้รับผิดชอบ สภาการพยาบาลและ AUN-QA เพิ่มเป็นหมวดว่างรอใช้ในอนาคต ไม่ใส่กิจกรรมสมมติลงในสองหมวดนี้
+## โครงสร้างฐานข้อมูล
 
-## ไฟล์สำคัญ
+- `Plans`: แผน 4 ประเภท สี และลิงก์โฟลเดอร์
+- `Activities`: ชื่อกิจกรรม รายละเอียด วันเริ่ม/สิ้นสุด ผู้รับผิดชอบ สถานะ รหัสกิจกรรม
+- `Attachments`: รหัสกิจกรรม ชื่อเอกสาร และ HTTPS Google Drive URL เท่านั้น ไม่อัปโหลดไบนารี
+- `Audit_Log`: ประวัติการเพิ่ม/แก้ไขกิจกรรม และลิงก์เอกสาร
 
-| ไฟล์ | หน้าที่ |
-|---|---|
-| `index.html` | หน้าเว็บไซต์และโลโก้ |
-| `styles.css` | ธีม Sarabun, 3 breakpoints, Gantt UI |
-| `app.js` | UI, filtering, dialogs, actions |
-| `assets/rtncn-logo.png` | โลโก้จากธีมต้นฉบับ |
-| `data/activities.json` | กิจกรรมตั้งต้นและเอกสารแนบหลังบันทึก |
-| `api/*.js` | Vercel serverless endpoints |
-| `lib/storage.js` | อ่าน/บันทึกข้อมูลบน GitHub |
-| `vercel.json` | การตั้งค่า Vercel |
-| `.env.example` | ชื่อตัวแปรระบบ (ไม่มี Token จริง) |
+ระบบจะอ่านกิจกรรมและเอกสารแนบจาก Google Sheets เมื่อเปิดหน้าเว็บ โดยอัปเดตผ่าน Vercel API หลังได้รับการยืนยันรหัสผ่าน
 
-## อัปโหลด GitHub
+## การเปิดใช้งาน Google Cloud
 
-1. สร้าง Repository ชื่อ `qa70-rtncn` ในบัญชีที่ต้องการ (Public/Private ตามนโยบาย)
-2. แตก ZIP แล้วเปิด Terminal/PowerShell ภายใน **โฟลเดอร์** `qa70-rtncn-sarabun`
-3. คำสั่ง:
+1. เปิด https://console.cloud.google.com และเลือกหรือสร้าง Google Cloud Project ของหน่วยงาน
+2. เปิด APIs & Services → Library → เปิด **Google Sheets API**
+3. ไปที่ IAM & Admin → Service Accounts → Create service account (เช่น `qa70-sheets-access`)
+4. สร้าง JSON key ของ Service Account **ภายใต้การควบคุมของผู้ดูแล** (หากนโยบายองค์กรอนุญาต) และจัดเก็บอย่างปลอดภัย
+5. เปิด Google Sheets ฐานข้อมูล กด Share และเพิ่มอีเมล Service Account (`...@...iam.gserviceaccount.com`) เป็น **Editor** เฉพาะชีตนี้ ไม่ต้องแชร์สาธารณะ
 
-```bash
-git init
-git add .
-git commit -m "QA 2570 Sarabun responsive site"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/qa70-rtncn.git
-git push -u origin main
-```
+> หาก Google Cloud ของหน่วยงานห้ามสร้าง Service Account keys ควรพิจารณา Workload Identity Federation / โซลูชันไร้กุญแจแทน และปรับส่วนยืนยันตัวตนใน API ก่อนใช้งาน
 
-ไฟล์ ZIP มีโปรเจกต์ครบถ้วน นำขึ้น GitHub ผ่าน **Add file → Upload files** ได้เช่นกัน โดยเลือก **เนื้อหาภายในโฟลเดอร์** ไม่ใช่ ZIP ไฟล์เพียงไฟล์เดียว
+## Vercel Environment Variables
 
-## Deploy ไป Vercel (สำหรับการบันทึกข้อมูลจริง)
+Project → Settings → Environment Variables:
 
-1. Vercel → **Add New → Project** → Import Git Repository ที่สร้าง
-2. Framework Preset: **Other**; Root Directory: `./`
-3. สร้าง GitHub **Fine-grained Personal Access Token** โดยให้สิทธิ์ `Contents: Read and Write` **เฉพาะ Repository นี้**
-4. เพิ่ม Environment Variables ใน Vercel Project Settings:
+- `GOOGLE_SHEET_ID`: ID ของไฟล์ชีต (เป็นค่าที่ไม่เป็นความลับ ตั้งไว้แล้ว)
+- `GOOGLE_CLIENT_EMAIL`: ค่า `client_email` จาก JSON key
+- `GOOGLE_PRIVATE_KEY`: ค่า `private_key` จาก JSON key (**Secret**, เก็บใน Vercel เท่านั้น; รองรับทั้ง newline จริงและ escaped `\n`)
+- `EDIT_PIN`: รหัสสำหรับแก้ไขข้อมูล (ตั้งค่าไว้แล้วในโปรเจกต์นี้)
 
-```env
-ADMIN_PIN=12345
-GITHUB_TOKEN=<GitHub Token - keep private>
-GITHUB_OWNER=YOUR_USERNAME
-GITHUB_REPO=qa70-rtncn
-GITHUB_BRANCH=main
-```
+เพิ่มค่า Secret ใน Vercel เอง ไม่ส่ง Private Key เข้าห้องสนทนา ไม่ commit หรือวางใน HTML / JavaScript ฝั่งเบราว์เซอร์
 
-5. Redeploy หลังตั้งค่า Environment Variables เมื่อสำเร็จเว็บจะอ่านและเขียนข้อมูลผ่าน GitHub API โดย API จะตรวจสอบ PIN **บนเซิร์ฟเวอร์** ไม่ใช่เฉพาะฝั่งหน้าเว็บ
+ตั้งค่าครบแล้ว Deploy ใหม่ และทดสอบ `GET /api/activities` ว่าส่ง `persistent: true` และ 21 กิจกรรม จากนั้นลองเพิ่มกิจกรรมทดสอบและตรวจใน Sheets
 
-> **หมายเหตุความปลอดภัย:** `12345` เป็นรหัสที่เดาง่าย เพราะเป็นตัวเลขที่ผู้ใช้ระบุ หากเปิดเว็บสาธารณะควรเปลี่ยนเป็นรหัสที่แข็งแรงขึ้นก่อนใช้งานจริง, เพิ่ม Rate Limiting ระดับ Edge และระบบบัญชีผู้ใช้ในระยะถัดไป ระบบนี้ยังไม่มีการระบุตัวตน/แยกสิทธิ์ผู้ใช้งาน และไม่เหมาะกับเอกสารที่มีข้อมูลผู้ป่วยหรือข้อมูลส่วนบุคคลอ่อนไหว
+## ข้อจำกัด / ความปลอดภัย
 
-## ไฟล์เอกสารแนบและ Google Drive
-
-- **คลังหลักฐาน**: ลิงก์ไปยัง Google Drive หลักและโฟลเดอร์ย่อยเดิม (สมศ., EdPEx, สภาการพยาบาล); AUN-QA ยังไม่กำหนดโฟลเดอร์
-- **เอกสารแนบรายกิจกรรม**: สามารถเพิ่ม/แก้ไขชื่อ/แทนที่/ลบเอกสาร หรือเพิ่มลิงก์ Google Drive ด้วย PIN
-- เมื่อ Vercel API ตั้งค่าครบ **ไฟล์ที่อัปโหลดขนาดไม่เกิน 2 MB** จะเก็บเป็นไฟล์ใน GitHub Repository ใต้ `data/evidence/` ไม่ใช่อัปโหลดเข้า Google Drive โดยตรง
-- สำหรับไฟล์เกิน 2 MB แนะนำอัปโหลดไว้ใน Google Drive แล้วกด **เพิ่มลิงก์เอกสาร** ในกิจกรรมนั้น (บันทึกลง GitHub แบบส่วนกลาง)
-- การเข้าถึงลิงก์ Drive ต้องมีสิทธิ์อ่านไฟล์ตามการแชร์จริงของ Google Drive
-- หากต้องการอัปโหลดไฟล์ตรงเข้า Google Drive และกำหนดสิทธิ์รายบุคคล จะต้องพัฒนา Google OAuth / Google Drive API เพิ่ม
-
-**คำเตือน:** การลบเอกสารจากหน้าเว็บจะลบการอ้างอิง และระบบจะพยายามลบไฟล์ปัจจุบัน แต่ประวัติ Git ของ Repository สามารถเก็บไฟล์เวอร์ชันก่อนหน้าไว้ได้ จึงไม่ควรเก็บเอกสารลับ/ข้อมูลสุขภาพใน GitHub แบบนี้
-
-## Demo เทียบกับ Live
-
-- เปิด `index.html` ในเครื่อง หรือ Deploy บน **GitHub Pages**: ใช้งานหน้าจอและทดลองฟังก์ชันได้ แต่ข้อมูลเพิ่ม/แก้ไขจะไม่ถูกบันทึกถาวร (โหมด Preview)
-- Deploy บน **Vercel** โดยตั้งค่า Environment Variables ถูกต้อง: เพิ่ม/แก้ไข/บันทึกข้อมูลจริงผ่าน GitHub Repository ทำให้ข้อมูลส่วนกลางตรงกันทุกเครื่อง
-- ถ้า Vercel ยังไม่ตั้งค่าตัวแปร ระบบจะอยู่ใน Preview และมีข้อความแจ้งท้าย Gantt
-
-## การทดลองในเครื่อง
-
-ต้องมี Node.js 20+ ไม่มี dependency ที่ต้องติดตั้ง
-
-```bash
-npm run dev
-# เปิด http://127.0.0.1:3000
-npm test
-```
-
-Font ใช้การโหลดผ่าน Google Fonts ดังนั้นเครื่องที่บล็อก CDN จะใช้ฟอนต์สำรอง
+- เว็บไซต์เปิดให้อ่านได้ แต่การแก้ไขต้องใช้ PIN ซึ่งยังไม่ใช่ระบบบัญชีผู้ใช้รายบุคคล
+- `Audit_Log.Actor` จึงระบุได้แค่ผู้ดูแลผ่านรหัส ไม่ใช่ชื่อคนจริง
+- การเขียน Google Sheets ไม่ใช่ธุรกรรมฐานข้อมูลแบบ atomic; หากหลายคนแก้ไขพร้อมกันควรเพิ่มกลไกป้องกันความขัดแย้ง
+- ต้องกำหนดสิทธิ์ Google Drive ของแต่ละไฟล์ตามนโยบายหน่วยงาน การมีลิงก์ไม่เท่ากับมีสิทธิ์เปิดดู
+- ไม่มีการจัดเก็บไฟล์ไบนารีใน GitHub หรือ Google Sheets; ผู้ดูแลอัปโหลดไฟล์ไป Drive ก่อนแล้วเพิ่มลิงก์ในเว็บไซต์
