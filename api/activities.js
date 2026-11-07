@@ -33,5 +33,11 @@ module.exports=async(req,res)=>{
     }
     if(!result.activity||!Array.isArray(result.activities))throw Error('Apps Script ไม่ส่งข้อมูลกิจกรรมหลังบันทึก');
     return json(res,200,{success:true,persistent:true,activity:result.activity,activities:sortRows(result.activities)});
-  }catch(e){console.error('GAS activity write failed',e.message);return json(res,400,{error:e.message});}
+  }catch(e){
+  console.error('GAS activity write failed',e.message);
+  if(/Unsupported action/i.test(e.message)){
+    return json(res,409,{error:'Google Apps Script ที่เผยแพร่อยู่ยังเป็นเวอร์ชันเก่า กรุณาเปิด Apps Script → Deploy → Manage deployments → Edit → New version → Deploy เพื่อเปิดใช้การลบกิจกรรม'});
+  }
+  return json(res,400,{error:e.message});
+}
 };

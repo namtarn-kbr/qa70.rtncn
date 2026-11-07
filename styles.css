@@ -461,3 +461,48 @@ body{font-size:15px;line-height:1.5}
   .qa-mobile-footer {padding-left:13px;padding-right:13px}
 }
 @media print {.qa-mobile-footer{display:none!important}}
+
+
+/* QA 2570 — date-aware Gantt filters, grouped plan identity */
+.date-filter-bar{
+ display:flex;flex-wrap:wrap;align-items:center;gap:9px 14px;
+ padding:10px 16px;background:#f8fafc;border-top:1px solid #e7edf4;
+ border-bottom:1px solid #e7edf4;
+}
+.date-filter-heading{
+ font-size:12px;font-weight:700;white-space:nowrap;color:#315574;
+ margin-right:4px;
+}
+.date-filter-field{display:inline-flex;align-items:center;gap:6px;min-height:34px;color:#617991;font-size:12px;font-weight:600;white-space:nowrap}
+.date-filter-field select,.date-filter-field input{
+ max-width:160px;min-height:35px;background:#fff;
+ border:1px solid #d5e0eb;border-radius:7px;padding:6px 8px;
+ color:#223c57;font:500 12.5px Sarabun,"TH Sarabun New",Tahoma,sans-serif;
+ outline:none;
+}
+.date-filter-field input{width:144px;box-sizing:border-box}
+.date-filter-field select{min-width:116px}
+.date-filter-field select:focus-visible,.date-filter-field input:focus-visible{
+ outline:2px solid #a8c7e9;outline-offset:1px;border-color:#4b81b5;
+}
+.date-filter-result{margin-left:auto;font-size:11.5px;color:#71889e;white-space:nowrap}
+.month-grid span.month-selected{background:#e7f0fa;color:#20598e;font-weight:800;box-shadow:inset 0 -3px 0 #437daf}
+.gantt-row.row-S .gantt-bar{background:#427ead}
+.gantt-row.row-E .gantt-bar{background:#e28c39}
+.gantt-row.row-C .gantt-bar{background:#329b79}
+.gantt-row.row-A .gantt-bar{background:#8974b5}
+@media(max-width:1050px){
+ .date-filter-heading{width:100%;margin-right:0}
+ .date-filter-result{margin-left:0}
+}
+@media(max-width:600px){
+ .date-filter-bar{gap:9px 11px;padding:10px 12px}
+ .date-filter-heading{font-size:12px}
+ .date-filter-field{flex:1 1 135px;justify-content:space-between}
+ .date-filter-field select,.date-filter-field input{min-width:0;max-width:none;width:100%;font-size:12px}
+ .date-filter-field span{flex:none}
+ .date-filter-result{flex:1 1 100%;text-align:right}
+}
+@media print {
+ .date-filter-bar{display:none!important}
+}

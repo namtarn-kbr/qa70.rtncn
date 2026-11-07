@@ -72,3 +72,28 @@ npm ci
 npm test
 npm run build
 ```
+
+
+## UI update: Gantt date filters and college emblem
+
+- The Gantt view filters by **plan**, **month**, and an optional **date range** (activity time spans overlapping the selected dates). Its four track colors remain consistent.
+- The left institutional logo was replaced using the college emblem supplied for the QA2570 project.
+- The view still has 12 monthly columns on desktop; changing the date filter hides nonmatching activities rather than truncating the fiscal timeline.
+
+## Fix: delete shows `Unsupported action`
+
+The Vercel API now displays a helpful message when Apps Script is still on an old Web App deployment.
+**Publishing a new GitHub/Vercel version cannot update an existing Apps Script Web App.**
+Use the delivered `QA2570_GAS_Code_v3.gs` as the full `Code.gs` source in Apps Script.
+Then choose **Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy**.
+
+Use the **existing deployment**, so the `GAS_WEB_APP_URL` does not change.
+After publishing, open the GAS `/exec` URL in a browser; it should show:
+
+```json
+{"success":true,"service":"QA2570","version":"v3-20261107","supportsDeleteActivity":true}
+```
+
+(Additional `message` may appear.) Do not paste the `QA_API_SECRET` anywhere outside GAS Script Properties and Vercel server-side Secrets.
+Deletion removes the matching activity and **link metadata** from the Sheet, adds an Audit_Log entry, but does not delete underlying Google Drive files.
+
