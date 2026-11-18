@@ -2,7 +2,7 @@
 'use strict';
 const tracks=[{name:'สมศ.',short:'S',color:'blue',folder:'1nDu4n-VUlfBT-qxI0gUDNmX7ozwD17uf',desc:'การประเมินคุณภาพภายนอก',children:[['เอกสาร สมศ.','1CjhaT9Rh7mnerOpUEdbKYIVDcdYXCBez'],['เอกสารประกอบการบรรยาย 24 พ.ย. 2569','1D7yKDsDAxAukQiors66w4M4EaaZsSjbh']]},{name:'EdPEx',short:'E',color:'orange',folder:'1Q3p-FIDy_qHWaVkB6SB4lEdeT-lK4zG8',desc:'การพัฒนาคุณภาพระดับสถาบัน',children:[['ตัวอย่างรายงานการประเมินตนเอง','1Vod1a_VNaafbElXimkD4xJGoE0KXV8gb']]},{name:'สภาการพยาบาล',short:'C',color:'green',folder:'1tK9RoQL3UaZrn3PJ_HYryubTphWCT0IT',desc:'รองรับแผนและหลักฐานการรับรองในอนาคต',children:[]},{name:'AUN-QA',short:'A',color:'purple',folder:'',desc:'รองรับแผนและหลักฐานระดับหลักสูตรในอนาคต',children:[]}];
 const seed=JSON.parse(document.getElementById('seed').textContent);
-let items=structuredClone(seed),files={},page='plan',view='gantt',track='all',status='all',owner='all',search='',zoom='month',selectedPlans=null,dialog=null,nextId=1,apiMode='preview',adminPin='';
+let items=structuredClone(seed),files={},page='home',view='gantt',track='all',status='all',owner='all',search='',zoom='month',selectedPlans=null,dialog=null,nextId=1,apiMode='preview',adminPin='',evidenceData=null,evidenceStatus='idle',evidenceError='',evidenceQuery='',evidenceKind='all',evidenceSort='recent',evidenceLastFetch=0;
 const monthNames=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const monthArray=Array.from({length:12},(_,i)=>{let d=new Date(Date.UTC(2026,9+i,1));return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1};});
 const clean=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -45,9 +45,100 @@ function multiPlanBar(){
  <span class="multi-plan-help">เรียงตามวันที่เริ่มต้น</span>
  </div>`;
 }
-const activeTracks=()=>tracks.filter(t=>count(t.name)>0);
-function render(){if(selectedPlans!==null)selectedPlans=selectedPlans.filter(n=>activeTracks().some(t=>t.name===n));if(track!=='all'&&!activeTracks().some(t=>t.name===track))track='all';document.querySelectorAll('[data-page]').forEach(el=>el.classList.toggle('active',el.dataset.page===page));document.getElementById('sideTracks').innerHTML=`<button data-track="all" class="${track==='all'?'active':''}"><span>ทุกแผน</span><span class="pillnum">${items.length}</span></button>`+activeTracks().map(t=>`<button data-track="${clean(t.name)}" class="${track===t.name?'active':''}"><span><i class="dot track-${t.short}"></i>${clean(t.name)}</span><span class="pillnum">${count(t.name)}</span></button>`).join('');document.getElementById('root').innerHTML=page==='plan'?planPage():evidencePage()}
-function metrics(){const n=items.length,ns=items.filter(x=>x.status==='not_started').length,ip=items.filter(x=>x.status==='in_progress').length,done=items.filter(x=>x.status==='done').length;return `<div class="metrics"><button class="metric primary ${status==='all'?'active':''}" data-stat="all"><small>กิจกรรมทั้งหมด</small><strong>${n} <span>กิจกรรม</span></strong><span class="hint">▦</span></button>${[['not_started','ยังไม่เริ่ม',ns,'○'],['in_progress','กำลังดำเนินการ',ip,'◷'],['done','เสร็จสิ้น',done,'✓']].map(([id,name,val,ic])=>`<button class="metric ${status===id?'active':''}" data-stat="${id}"><small><span class="dot" style="background:${id==='not_started'?'#a7b4c2':id==='in_progress'?'#e2aa33':'#2a9c6f'}"></span>${name}</small><strong>${val} <span>กิจกรรม</span></strong><span class="hint">${ic}</span></button>`).join('')}</div>`}
+const evidencePlan=t=>evidenceData?.plans?.find(p=>p.name===t.name)||null;
+const activeTracks=()=>tracks.filter(t=>count(t.name)>0||(evidencePlan(t)?.items||[]).length>0);
+const scopedTracks=()=>tracks.filter(t=>chosenPlanNames().includes(t.name));
+const safeDriveLink=url=>{
+ try{const u=new URL(String(url));return u.protocol==='https:'&&['drive.google.com','docs.google.com'].includes(u.hostname)?u.href:null}catch{return null}
+};
+const thaiTime=iso=>{
+ try{return new Date(iso).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})}catch{return '—'}
+};
+async function loadEvidence(force=false){
+ if(location.protocol==='file:')return;
+ if(evidenceStatus==='loading')return;
+ if(!force&&Date.now()-evidenceLastFetch<45000&&evidenceStatus==='ready')return;
+ evidenceStatus='loading';evidenceError='';
+ if(page==='evidence'||page==='home'||page==='overview')render();
+ try{
+  const url='/api/evidence'+(force?'?refresh=1':'');
+  const res=await fetch(url,{cache:'no-store'});
+  const data=await res.json();
+  if(!res.ok)throw Error(data.error||'ไม่สามารถอ่านคลังหลักฐานได้');
+  if(!Array.isArray(data.plans))throw Error('ข้อมูลจาก Google Drive ไม่ถูกต้อง');
+  evidenceData=data;evidenceStatus='ready';evidenceLastFetch=Date.now();
+ }catch(err){evidenceStatus='error';evidenceError=err.message;}
+ if(page==='evidence'||page==='home'||page==='overview')render();
+}
+function evidenceInfo(){
+ const list=evidenceData?.plans||[];
+ const files=list.reduce((v,p)=>v+(p.items||[]).filter(x=>x.kind==='file').length,0);
+ const folders=list.reduce((v,p)=>v+(p.items||[]).filter(x=>x.kind==='folder').length,0);
+ return {files,folders,updatedAt:evidenceData?.updatedAt||null,partial:!!evidenceData?.partial};
+}
+function mainScopeBar(){
+ return '<div class="scope-panel">'+multiPlanBar()+'</div>';
+}
+function homePage(){
+ const info=evidenceInfo();
+ const cards=[{label:'ทุกแผนงาน',name:'all',color:'#244a70',num:items.length,docs:1},...tracks.map(t=>({label:t.name,name:t.name,color:{S:'#427ead',E:'#e28c39',C:'#329b79',A:'#8974b5'}[t.short],num:count(t.name),docs:(evidencePlan(t)?.items||[]).length}))];
+ const upcoming=sorted(items.filter(a=>a.endDate>=new Date().toISOString().slice(0,10))).slice(0,5);
+ return `<section class="v2-home-hero"><div class="v2-eyebrow">RTNCN · QUALITY ASSURANCE PORTAL</div><h1>ระบบประกันคุณภาพการศึกษา</h1><p>วิทยาลัยพยาบาลกองทัพเรือ <span>ปีงบประมาณ 2570</span></p><div class="v2-home-actions"><button data-go="evidence" class="v2-primary-action">▣ เปิดคลังหลักฐาน</button><button class="v2-secondary-action" data-go="plan">▤ แผนการดำเนินงาน</button></div></section>
+ <div class="v2-section-head"><div><h2>เลือกแผนงาน</h2><p>เลือกดูภาพรวม แผนดำเนินงาน และเอกสารหลักฐานของแต่ละแผน</p></div></div>
+ <div class="v2-plan-cards">${cards.map(c=>`<button class="v2-plan-card ${!c.num&&!c.docs?"disabled":""}" ${!c.num&&!c.docs?"disabled aria-disabled=\"true\"":`data-home-plan="${clean(c.name)}"`} style="--plan-color:${c.color}"><span class="v2-card-mark"></span><span class="v2-plan-title">${clean(c.label)}</span><strong>${c.num}</strong><span class="v2-plan-caption">${c.docs?'มีเอกสารใน Drive · ':''}${c.num?'กิจกรรม':'ยังไม่มีกิจกรรม'} <span>→</span></span></button>`).join('')}</div>
+ <div class="v2-home-panels"><section class="v2-feature-card v2-evidence-feature"><div class="v2-feature-icon">▣</div><div><h3>คลังหลักฐาน Google Drive</h3><p>ดูไฟล์และโฟลเดอร์ย่อยทั้งหมดตามแผน ค้นหาและเปิดจาก Google Drive โดยตรง</p><div class="v2-feature-summary">${evidenceStatus==='ready'?info.folders+' โฟลเดอร์ · '+info.files+' ไฟล์':evidenceStatus==='error'?'รอการเปิดใช้ Drive Sync': 'กำลังตรวจสอบข้อมูล Drive'}</div></div><button data-go="evidence" class="btn btn-orange">เปิดคลังหลักฐาน →</button></section>
+ <section class="v2-feature-card"><div class="v2-feature-icon muted">◷</div><div><h3>กิจกรรมที่กำลังจะถึงกำหนด</h3><div class="v2-upcoming">${upcoming.length?upcoming.map(a=>`<button data-detail="${clean(a.id)}"><b>${clean(a.name)}</b><small>${clean(a.track)} · ${clean(formatDate(a.startDate))}</small></button>`).join(''):'<p>ไม่มีกิจกรรมที่กำลังจะถึงกำหนด</p>'}</div></div></section></div>`;
+}
+function overviewPage(){
+ const inScope=filtered();
+ const completed=inScope.filter(a=>a.status==='done').length;
+ const wip=inScope.filter(a=>a.status==='in_progress').length;
+ const info=evidenceInfo();
+ return `<section class="v2-page-heading"><div><span class="v2-eyebrow">OVERVIEW · FY 2570</span><h1>ภาพรวมการประกันคุณภาพการศึกษา</h1><p>ติดตามผลการดำเนินงานและเข้าถึงคลังหลักฐานได้จากหน้าเดียว</p></div><button class="btn btn-orange" data-go="evidence">▣ เปิดคลังหลักฐาน</button></section>${mainScopeBar()}
+ <div class="v2-kpis">${[['กิจกรรมในแผนที่เลือก',inScope.length,'calendar-check'],['เสร็จสิ้น',completed,'check'],['กำลังดำเนินการ',wip,'clock'],['หลักฐานใน Google Drive',evidenceStatus==='ready'?info.files:'—','folder']].map(v=>`<div class="v2-kpi"><span>${v[0]}</span><strong>${v[1]}</strong></div>`).join('')}</div>
+ <div class="v2-progress"><div><h3>ความก้าวหน้าของกิจกรรม</h3><p>${completed} จาก ${inScope.length} กิจกรรมเสร็จสิ้น</p></div><div class="v2-progress-track"><div style="width:${inScope.length?Math.round(completed/inScope.length*100):0}%"></div></div></div>
+ <div class="v2-quick-nav"><button data-go="plan"><span>▤</span><strong>ดูแผนการดำเนินงาน</strong><small>Gantt / ตาราง / ดาวน์โหลด PDF</small></button><button data-go="evidence"><span>▣</span><strong>ดูคลังหลักฐาน</strong><small>รายการไฟล์และโฟลเดอร์จาก Drive</small></button></div>`;
+}
+function evidencePage(){
+ const info=evidenceInfo();
+ const planItems=(evidenceData?.plans||[]).filter(p=>chosenPlanNames().includes(p.name));
+ const searched=(evidenceQuery||'').trim().toLocaleLowerCase('th');
+ const sortedItems=p=>{
+  let rows=[...(p.items||[])].filter(x=>(evidenceKind==='all'||x.kind===evidenceKind)&&(!searched||[x.name,x.path,p.name].some(s=>String(s||'').toLocaleLowerCase('th').includes(searched))));
+  rows.sort((a,b)=>evidenceSort==='recent'?(String(b.modifiedTime||'').localeCompare(String(a.modifiedTime||''))||a.name.localeCompare(b.name,'th')):a.kind===b.kind?a.name.localeCompare(b.name,'th'):(a.kind==='folder'?-1:1));
+  return rows;
+ };
+ const active=(evidenceStatus==='ready'?planItems:[]);
+ return `<section class="v2-page-heading"><div><span class="v2-eyebrow">EVIDENCE LIBRARY · LIVE DRIVE</span><h1>คลังหลักฐานการประกันคุณภาพ</h1><p>รายการเอกสารและโฟลเดอร์ย่อยจาก Google Drive ตามแผนงานที่เลือก</p></div><div class="hero-buttons"><button class="btn btn-navy" data-refresh-evidence ${evidenceStatus==='loading'?'disabled':''}>↻ รีเฟรชข้อมูล</button></div></section>
+ ${mainScopeBar()}
+ <div class="v2-evidence-status"><span class="v2-status-mark ${evidenceStatus==='ready'?'online':''}"></span>${evidenceStatus==='ready'?info.folders+' โฟลเดอร์ · '+info.files+' ไฟล์ · อัปเดต '+thaiTime(info.updatedAt):evidenceStatus==='loading'?'กำลังอ่านรายการไฟล์จาก Google Drive…':evidenceStatus==='error'?'ยังไม่สามารถอ่านรายการไฟล์จาก Google Drive ได้':'กำลังเตรียมการเชื่อมต่อ Google Drive'}<span class="v2-auto-note">ตรวจสอบข้อมูลใหม่อัตโนมัติทุก 60 วินาทีเมื่อเปิดหน้านี้</span></div>
+ ${evidenceStatus==='error'?`<div class="v2-evidence-error"><b>การเชื่อมต่อคลังหลักฐานยังไม่พร้อม</b><p>${clean(evidenceError)}</p><p>สามารถเปิดโฟลเดอร์ Drive ได้โดยตรงด้านล่าง โดยยังไม่แสดงรายการจำลองแทนข้อมูลจริง</p></div>`:''}
+ <div class="v2-evidence-tools"><label class="v2-evidence-search"><span>⌕</span><input id="evidenceSearch" placeholder="ค้นหาไฟล์ ชื่อโฟลเดอร์ หรือเส้นทาง…" value="${clean(evidenceQuery)}" aria-label="ค้นหาเอกสารหลักฐาน"/></label><select id="evidenceKind" aria-label="ประเภทหลักฐาน"><option value="all" ${evidenceKind==='all'?'selected':''}>ไฟล์และโฟลเดอร์</option><option value="folder" ${evidenceKind==='folder'?'selected':''}>เฉพาะโฟลเดอร์</option><option value="file" ${evidenceKind==='file'?'selected':''}>เฉพาะไฟล์</option></select><select id="evidenceSort" aria-label="เรียงรายการ"><option value="recent" ${evidenceSort==='recent'?'selected':''}>แก้ไขล่าสุด</option><option value="name" ${evidenceSort==='name'?'selected':''}>ชื่อ ก–ฮ</option></select></div>
+ <div class="v2-evidence-groups">${(evidenceStatus==='ready'?active:scopedTracks().map(t=>({name:t.name,rootUrl:t.folder?'https://drive.google.com/drive/folders/'+t.folder:'',items:[]}))).filter(p=>p.rootUrl||(p.items||[]).length).map(p=>{
+   const t=tracks.find(x=>x.name===p.name);if(!t)return '';
+   const rows=sortedItems(p),rawCount=(p.items||[]).length;
+   return `<section class="v2-drive-group"><header style="--plan-color:${{S:'#427ead',E:'#e28c39',C:'#329b79',A:'#8974b5'}[t.short]}" class="v2-drive-group-head"><div class="v2-group-title"><span class="v2-group-icon">▣</span><div><h3>${clean(p.name)}</h3><small>${rawCount} รายการ · ${(p.items||[]).filter(x=>x.kind==='folder').length} โฟลเดอร์</small></div></div>${safeDriveLink(p.rootUrl)?`<a href="${clean(safeDriveLink(p.rootUrl))}" target="_blank" rel="noopener noreferrer">เปิดโฟลเดอร์หลัก ↗</a>`:''}</header>
+   ${p.error?`<div class="v2-inline-error">${clean(p.error)}</div>`:''}
+   <div class="v2-drive-items">${evidenceStatus==='ready'?(rows.length?rows.map(x=>{
+    const href=safeDriveLink(x.url);
+    return `<div class="v2-drive-item"><span class="v2-file-icon ${x.kind==='folder'?'folder':''}">${x.kind==='folder'?'▣':'▤'}</span><div class="v2-file-meta"><b>${clean(x.name)}</b><small>${x.kind==='folder'?'โฟลเดอร์':'ไฟล์'} · ${clean(x.path||'โฟลเดอร์หลัก')} · แก้ไข ${thaiTime(x.modifiedTime)}</small></div>${href?`<a href="${clean(href)}" target="_blank" rel="noopener noreferrer">เปิด ↗</a>`:''}</div>`;
+   }).join(''):'<div class="v2-drive-empty">ไม่พบไฟล์หรือโฟลเดอร์ที่ตรงกับการค้นหา</div>'):'<div class="v2-drive-empty">กด “รีเฟรชข้อมูล” เมื่อเปิดใช้งาน GAS Drive Sync แล้ว</div>'}</div></section>`;
+ }).join('')||'<div class="v2-drive-empty">ยังไม่มีโฟลเดอร์สำหรับแผนที่เลือก</div>'}</div>
+ ${info.partial?'<div class="v2-evidence-error">รายการมีจำนวนมาก ระบบแสดงเพียงบางส่วน โปรดเปิด Google Drive เพื่อดูรายการที่เหลือ</div>':''}`;
+}
+function render(){
+ if(selectedPlans!==null)selectedPlans=selectedPlans.filter(n=>activeTracks().some(t=>t.name===n));
+ if(track!=='all'&&!activeTracks().some(t=>t.name===track))track='all';
+ document.querySelectorAll('[data-page]').forEach(el=>el.classList.toggle('active',el.dataset.page===page));
+ const names={home:'หน้าแรก',overview:'ภาพรวม',plan:'แผนการดำเนินงาน',evidence:'คลังหลักฐาน'};
+ const title=document.getElementById('currentPageTitle');
+ if(title)title.textContent=names[page]||names.home;
+ document.getElementById('sideTracks').innerHTML=
+ `<button data-track="all" class="${selectedPlans===null?'active':''}"><span>ทุกแผน</span><span class="pillnum">${items.length}</span></button>`+
+ activeTracks().map(t=>`<button data-track="${clean(t.name)}" class="${chosenPlanNames().includes(t.name)&&selectedPlans!==null?'active':''}"><span><i class="dot track-${t.short}"></i>${clean(t.name)}</span><span class="pillnum">${count(t.name)}</span></button>`).join('');
+ document.getElementById('root').innerHTML=page==='home'?homePage():page==='overview'?overviewPage():page==='plan'?planPage():evidencePage();
+}
+function metrics(){const scope=new Set(chosenPlanNames()),selected=items.filter(x=>scope.has(x.track));const n=selected.length,ns=selected.filter(x=>x.status==='not_started').length,ip=selected.filter(x=>x.status==='in_progress').length,done=selected.filter(x=>x.status==='done').length;return `<div class="metrics"><button class="metric primary ${status==='all'?'active':''}" data-stat="all"><small>กิจกรรมทั้งหมด</small><strong>${n} <span>กิจกรรม</span></strong><span class="hint">▦</span></button>${[['not_started','ยังไม่เริ่ม',ns,'○'],['in_progress','กำลังดำเนินการ',ip,'◷'],['done','เสร็จสิ้น',done,'✓']].map(([id,name,val,ic])=>`<button class="metric ${status===id?'active':''}" data-stat="${id}"><small><span class="dot" style="background:${id==='not_started'?'#a7b4c2':id==='in_progress'?'#e2aa33':'#2a9c6f'}"></span>${name}</small><strong>${val} <span>กิจกรรม</span></strong><span class="hint">${ic}</span></button>`).join('')}</div>`}
 function planPage(){let arr=filtered();return `<section class="page-hero"><div><h1>ระบบประกันคุณภาพการศึกษา</h1><p>วิทยาลัยพยาบาลกองทัพเรือ · ปีงบประมาณ 2570 (ต.ค. 2569 – ก.ย. 2570)</p></div><div class="hero-buttons"><button class="btn btn-pdf" data-pdf>⇩ ดาวน์โหลด Gantt PDF</button><button class="btn btn-orange" data-auth="add">＋ เพิ่มกิจกรรม</button></div></section>${metrics()}<section class="panel"><div class="workspace-header"><div><div class="section-title">แผนการดำเนินงาน <span class="shown-count">${arr.length} กิจกรรม</span></div></div><div class="view-tabs">${[['gantt','Gantt chart'],['table','ตาราง'],['list','รายการ']].map(([v,l])=>`<button data-view="${v}" class="${view===v?'active':''}">${l}</button>`).join('')}</div></div><div class="filters"><div class="search-shell"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="search" class="field search" placeholder="ค้นหากิจกรรม..." value="${clean(search)}" aria-label="ค้นหากิจกรรม" /></div><select id="owner" class="field" aria-label="ผู้รับผิดชอบ">${ownerSelectOptions()}</select><select id="status" class="field" aria-label="สถานะ"><option value="all">ทุกสถานะ</option>${Object.entries(statusText).map(([id,t])=>`<option value="${id}" ${status===id?'selected':''}>${t}</option>`).join('')}</select><select id="zoom" class="field" aria-label="ความละเอียดเวลา"><option value="month" ${zoom==='month'?'selected':''}>รายเดือน</option><option value="quarter" ${zoom==='quarter'?'selected':''}>รายไตรมาส</option></select><button class="clear" data-clear>ล้างตัวกรอง</button></div>${multiPlanBar()}${view==='gantt'?gantt(arr):view==='table'?table(arr):cards(arr)}</section>`}
 function coord(s,end=false){const [y,m,d]=s.split('-').map(Number);const monthIx=(y-2026)*12+(m-10);const days=new Date(Date.UTC(y,m,0)).getUTCDate();const val=(monthIx+(d-1+(end?1:0))/days)/12*100;return Math.min(100,Math.max(0,val))}
 function gantt(arr){
@@ -75,7 +166,6 @@ function gantt(arr){
 }
 function table(arr){return `<div class="table-scroll"><table class="data-table"><thead><tr><th>ชื่อรายการ</th><th>แผน</th><th>วันเริ่มต้น</th><th>วันสิ้นสุด</th><th>ผู้รับผิดชอบ</th><th>สถานะ</th></tr></thead><tbody>${arr.map(a=>`<tr><td><button class="textlink" data-detail="${clean(a.id)}">${clean(a.name)}</button></td><td>${badge(a.track)}</td><td>${formatDate(a.startDate)}</td><td>${formatDate(a.endDate)}</td><td>${clean(a.owner)}</td><td><span class="status ${statusClass(a.status)}">${statusText[a.status]}</span></td></tr>`).join('')}</tbody></table>${arr.length?'':'<div class="empty">ไม่พบกิจกรรมตามตัวกรอง</div>'}</div>`}
 function cards(arr){return `<div class="list-cards">${arr.map(a=>`<button class="itemcard" data-detail="${clean(a.id)}"><span style="display:flex;gap:8px;align-items:center">${badge(a.track)}<span class="status ${statusClass(a.status)}">${statusText[a.status]}</span></span><strong>${clean(a.name)}</strong><small>${formatDate(a.startDate)} – ${formatDate(a.endDate)} · ${clean(a.owner)}</small></button>`).join('')||'<div class="empty">ไม่พบกิจกรรมตามตัวกรอง</div>'}</div>`}
-function evidencePage(){return `<section class="page-hero"><div><h1>คลังหลักฐานการประกันคุณภาพการศึกษา</h1></div><div class="hero-buttons"><a class="btn btn-orange" href="https://drive.google.com/drive/folders/1Mui5eEOBKnTXETdv-YE63KPM2oQ8SCB0" target="_blank" rel="noopener noreferrer">↗ เปิด Google Drive หลัก</a></div></section><div class="folders">${activeTracks().map(t=>`<article class="panel folder folder-${t.short}"><div class="folder-head"><span class="folder-ico">▣</span><div><h3>${clean(t.name)}</h3></div><span class="folder-total">${count(t.name)} กิจกรรม</span></div><div class="folder-links">${t.children.map(([name,id])=>`<a target="_blank" rel="noopener noreferrer" href="https://drive.google.com/drive/folders/${id}">↗ ${clean(name)}</a>`).join('')}${t.folder?`<a class="folder-main-link" href="https://drive.google.com/drive/folders/${t.folder}" target="_blank" rel="noopener noreferrer">เปิดโฟลเดอร์ ${clean(t.name)} ↗</a>`:'<span class="upcoming-tag">รอเชื่อมโฟลเดอร์ในอนาคต</span>'}</div></article>`).join('')}</div>`}
 function fileRows(a,canEdit){let f=files[a.id]||[];return f.length?f.map((it,index)=>`<div class="attach-row"><div style="min-width:0"><strong>▤ ${clean(it.name)}</strong><small>${'ลิงก์ Google Drive'}${it.size?' · '+Math.ceil(it.size/1024)+' KB':''}</small></div><div class="attach-action"><a class="mini" href="${clean(it.url)}" target="_blank" rel="noopener noreferrer">เปิด ↗</a>${canEdit?`<button class="mini" data-rename="${index}">แก้ชื่อ</button><button class="mini" data-replace="${index}">เปลี่ยนลิงก์</button><button class="mini danger" data-delete="${index}">ลบ</button>`:''}</div></div>`).join(''):'<div class="empty-attach">ยังไม่มีเอกสารแนบในรายการนี้</div>'}
 function openDialog(kind,id=null,action=null){dialog={kind,id,action};drawDialog()}
 function closeDialog(){dialog=null;document.getElementById('modal-root').innerHTML=''}
@@ -116,7 +206,7 @@ async function saveAttachment(action,activityId,extra){
 }
 
 function exportCSV(){let data=sorted(items);let head=['แผน','ชื่อรายการ','รายละเอียด','เริ่มต้น','สิ้นสุด','ผู้รับผิดชอบ','สถานะ'];let rows=[head,...data.map(a=>[a.track,a.name,a.detail,a.startDate,a.endDate,a.owner,statusText[a.status]])];let csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(',')).join('\r\n');let url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));let a=document.createElement('a');a.href=url;a.download='QA2570-activities-preview.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-function setTrack(t){selectedPlans=t==='all'?null:[t];track=t;page='plan';render()}
+function setTrack(t){selectedPlans=t==='all'?null:[t];track=t;page=page==='home'?'overview':page;render();if(page==='evidence')loadEvidence();}
 function toggleMultiPlan(name){
  const active=activeTracks().map(t=>t.name);
  const current=chosenPlanNames();
@@ -126,7 +216,14 @@ function toggleMultiPlan(name){
  render();
 }
 // Event delegation keeps the prototype independent of a backend.
-document.addEventListener('click',async e=>{let hit=e.target.closest('button[data-page],button[data-track],button[data-view],button[data-stat],button[data-clear],button[data-detail],button[data-auth],button[data-close],button[data-pdf],button[data-multi-plan],button[data-multi-all],button[data-delete],button[data-rename],button[data-replace],button[data-delete-activity],button[data-confirm-delete]');if(!hit){if(e.target.id==='overlay')closeDialog();return}if(hit.dataset.page){page=hit.dataset.page;render();return}if(hit.dataset.track){setTrack(hit.dataset.track);return}if(hit.hasAttribute('data-multi-all')){selectedPlans=null;track='all';render();return}
+document.addEventListener('click',async e=>{let hit=e.target.closest('button[data-page],button[data-track],button[data-view],button[data-stat],button[data-clear],button[data-detail],button[data-auth],button[data-close],button[data-pdf],button[data-multi-plan],button[data-multi-all],button[data-delete],button[data-rename],button[data-replace],button[data-delete-activity],button[data-confirm-delete],button[data-home-plan],button[data-go],button[data-refresh-evidence]');if(!hit){if(e.target.id==='overlay')closeDialog();return}if(hit.dataset.page){page=hit.dataset.page;render();if(page==='evidence'||page==='home')loadEvidence();return}
+if(hit.hasAttribute('data-home-plan')){
+ const target=hit.dataset.homePlan;
+ selectedPlans=target==='all'?null:[target];track=target==='all'?'all':target;
+ page='overview';render();loadEvidence();return;
+}
+if(hit.dataset.go){page=hit.dataset.go;render();if(page==='evidence')loadEvidence();return}
+if(hit.hasAttribute('data-refresh-evidence')){await loadEvidence(true);return}if(hit.dataset.track){setTrack(hit.dataset.track);return}if(hit.hasAttribute('data-multi-all')){selectedPlans=null;track='all';render();return}
 if(hit.hasAttribute('data-multi-plan')){toggleMultiPlan(hit.dataset.multiPlan);return}
 if(hit.dataset.view){view=hit.dataset.view;render();return}if(hit.dataset.stat){status=hit.dataset.stat;render();return}if(hit.hasAttribute('data-clear')){search='';status='all';owner='all';track='all';selectedPlans=null;zoom='month';render();return}if(hit.dataset.detail){openDialog('detail',hit.dataset.detail);return}if(hit.dataset.auth){openDialog('pin',hit.dataset.id||null,hit.dataset.auth);return}
 if(hit.hasAttribute('data-delete-activity')){
@@ -183,8 +280,8 @@ if(hit.hasAttribute('data-confirm-delete')){
  }catch(err){notify(err.message)}
  return;
 }});
-document.addEventListener('change',e=>{let t=e.target;if(t.id==='owner'){owner=t.value;render()}if(t.id==='status'){status=t.value;render()}if(t.id==='zoom'){zoom=t.value;render()}});
-document.addEventListener('input',e=>{if(e.target.id==='search'){search=e.target.value;let active=document.activeElement;const pos=active.selectionStart;render();const input=document.getElementById('search');input?.focus();try{input?.setSelectionRange(pos,pos)}catch{}}});
+document.addEventListener('change',e=>{let t=e.target;if(t.id==='owner'){owner=t.value;render()}if(t.id==='status'){status=t.value;render()}if(t.id==='zoom'){zoom=t.value;render()}if(t.id==='evidenceKind'){evidenceKind=t.value;render()}if(t.id==='evidenceSort'){evidenceSort=t.value;render()}});
+document.addEventListener('input',e=>{if(e.target.id==='search'||e.target.id==='evidenceSearch'){const isEvidence=e.target.id==='evidenceSearch';if(isEvidence)evidenceQuery=e.target.value;else search=e.target.value;const pos=e.target.selectionStart;render();const input=document.getElementById(isEvidence?'evidenceSearch':'search');input?.focus();try{input?.setSelectionRange(pos,pos)}catch{}}});
 document.addEventListener('submit',async e=>{if(!['pin-form','edit-form','link-form'].includes(e.target.id))return;e.preventDefault();if(e.target.id==='pin-form'){const val=document.getElementById('pin').value;if(apiMode==='live'){try{const r=await fetch('/api/verify-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:val})});const d=await r.json();if(!r.ok)throw Error(d.error||'ไม่ผ่านการตรวจสอบ');adminPin=val}catch(e){document.getElementById('pin-error').textContent=e.message;return}}else if(val!=='12345'){document.getElementById('pin-error').textContent='รหัสผ่านไม่ถูกต้อง';return}let act=dialog.action,id=dialog.id;openDialog(act==='add'?'form':act==='edit'?'form':act==='delete'?'delete-confirm':'files',id);return}if(e.target.id==='edit-form'){let d=Object.fromEntries(new FormData(e.target).entries());const err=document.getElementById('edit-error');if(!d.name?.trim()||!d.owner?.trim()){err.textContent='โปรดกรอกชื่อรายการและผู้รับผิดชอบ';return}if(d.startDate>d.endDate){err.textContent='วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น';return}if(d.startDate<'2026-10-01'||d.endDate>'2027-09-30'){err.textContent='กรุณาเลือกวันที่ภายในปีแผน';return}let id=dialog.id;const isEdit=Boolean(id);
  try{
   if(apiMode==='live'){
@@ -200,4 +297,4 @@ document.addEventListener('submit',async e=>{if(!['pin-form','edit-form','link-f
   notify(apiMode==='live'?(isEdit?'แก้ไขรายการกิจกรรมแล้ว':'เพิ่มรายการกิจกรรมแล้ว'):(isEdit?'แก้ไขรายการชั่วคราว · ยังไม่บันทึกข้อมูลส่วนกลาง':'เพิ่มรายการชั่วคราว · ยังไม่บันทึกข้อมูลส่วนกลาง'));
  }catch(e){err.textContent=e.message}return}if(e.target.id==='link-form'){let d=Object.fromEntries(new FormData(e.target).entries());let url;try{url=new URL(d.url);if(url.protocol!=='https:'||!['drive.google.com','docs.google.com'].includes(url.hostname))throw Error('protocol')}catch{document.getElementById('files-error').textContent='โปรดระบุ URL ที่ถูกต้อง';return}try{if(apiMode==='live'){await saveAttachment('addLink',dialog.id,{name:d.name.trim(),url:url.toString()})}else{files[dialog.id] ||= [];files[dialog.id].push({name:d.name.trim(),url:url.toString(),kind:'link'})}let id=dialog.id;openDialog('files',id);notify(apiMode==='live'?'เพิ่มลิงก์เอกสารแล้ว':'เพิ่มลิงก์ชั่วคราว (ไม่บันทึกส่วนกลาง)')}catch(e){document.getElementById('files-error').textContent=e.message}}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&dialog)closeDialog()});
-render();loadRemote();
+render();loadRemote();loadEvidence();setInterval(()=>{if(page==='evidence'&&document.visibilityState!=='hidden')loadEvidence(true)},60000);

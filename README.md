@@ -1,3 +1,42 @@
+# QA 2570 — Version 2 (Evidence-first Hybrid Portal)
+
+## Changes (18 November 2026)
+
+- New **Home Portal** with plan cards, evidence shortcut and upcoming activities.
+- New **Overview** with plan-scoped KPIs and progress.
+- **Evidence Library** is a first-class view, featuring plan-scoped, recursively discovered Google Drive files and folders, search, file/folder type filter, and sorting by most recently modified/name.
+- Shared multi-plan selection across Overview, Gantt and Evidence.
+- Designed institutional header, navy/orange palette, Sarabun type, and responsive mobile navigation.
+- Unchanged Gantt chronology, edit workflow, and A4 landscape Sarabun PDF exporter.
+
+### Live evidence synchronization
+
+The browser calls `GET /api/evidence`, a server-to-server gateway to Apps Script `listEvidence`. The new GAS scans the Google Drive folders configured under **Plans!G** in the existing spreadsheet. It returns every accessible subfolder and file recursively, including names, Drive URLs, paths and modification dates. The website refreshes when opened or when **รีเฟรชข้อมูล** is pressed, and attempts another refresh every 60 seconds while the Evidence page remains visible.
+
+**Google Sheets is still the source of truth for Gantt activities. The Drive folder contents are not duplicated in Sheets.** Existing `Attachments` remains a separate list of activity-specific links and is not automatically mapped to the Drive's folder hierarchy.
+
+**Manual Apps Script deployment required:** A GitHub/Vercel deployment cannot modify an unrelated bound Apps Script project's live `Code.gs` or its published Web App deployment. The GAS v4 source file is available as `QA2570_GAS_Code_v4.gs` in the accompanying deliverable.
+
+1. Open the existing QA2570 Google Sheet → Extensions → Apps Script.
+2. Make a backup of the current Code.gs, then replace it with `QA2570_GAS_Code_v4.gs`.
+3. The existing Script Property `QA_API_SECRET` remains unchanged.
+4. Run `testDriveConnection` and approve the Google Drive permission requested by the script owner. **No Google Cloud Console or Service Account is needed.**
+5. Apps Script → Deploy → **Manage deployments** → edit the existing Web App → **New version** → Deploy. Preserve the `/exec` URL already saved as `GAS_WEB_APP_URL` on Vercel.
+6. Check `GET https://namtarn-qa70-rtncn.vercel.app/api/evidence` for `success:true`, `plans`, and `itemsTotal`. The public URL of the Apps Script Web App shows `supportsDriveSync:true` once deployed.
+7. A Drive upload, rename or edit should then become visible on the next website refresh, within around 60 seconds while the Evidence page is open. The App uses pull-based refresh, **not instantaneous Drive push events**.
+
+Drive scope permission belongs to the Google account under which GAS is deployed, and that account must have access to each plan's root folder. If a Drive root is missing or cannot be read, the API indicates the plan's error rather than silently omitting it.
+
+### Access and privacy
+
+The QA website remains publicly viewable to everyone with its link. **The live Evidence Library reveals the names of files/folders in the configured Google Drive roots** to people visiting the website. File content can only be opened by viewers with the respective Google Drive sharing permission. Do not include sensitive patient records or restricted document names under the indexed roots unless permitted by the institution. Consider requiring sign-in for the library if document names must remain confidential.
+
+The current GAS index scans up to **3,000 items** per response. If more items exist, `partial:true` makes the site warn that its index is incomplete rather than claim it includes everything. Apps Script execution time / Drive quotas can limit extremely large folder trees.
+
+The new portal does not upload files to Drive. Upload/edit/rename actions continue to be performed in Google Drive itself; changes are reflected by the listing after refresh.
+
+---
+
 # QA 2570 – RTNCN Quality Assurance
 
 - Website: https://namtarn-qa70-rtncn.vercel.app
