@@ -3,7 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../app.js'),'utf8').replace(/render\(\);loadRemote\(\);\s*$/,'');
+const source=fs.readFileSync(path.join(__dirname,'../app.js'),'utf8').replace(/render\(\);loadRemote\(\);loadEvidence\(\);setInterval\(.*$/s,'');
 const data=fs.readFileSync(path.join(__dirname,'../data/activities.json'),'utf8');
 const doc={
   getElementById(id){return id==='seed'?{textContent:data}:{innerHTML:'',textContent:'',hidden:true}},
