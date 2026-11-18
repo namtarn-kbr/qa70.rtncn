@@ -5,7 +5,7 @@ module.exports=async(req,res)=>{
  if(req.method!=='GET')return json(res,405,{error:'Method not allowed'});
  if(!configured())return json(res,503,{error:'ยังไม่ได้ตั้งค่า Google Apps Script สำหรับคลังหลักฐาน'});
  try{
-  const data=await gas.call('listEvidence');
+  const data=await gas.call('listEvidence',{force:req.query?.refresh==='1'});
   if(!Array.isArray(data.plans))throw Error('GAS ไม่ส่งข้อมูลคลังหลักฐาน');
   const plans=data.plans.map(p=>({
    name:String(p.name||''),id:String(p.id||''),rootUrl:String(p.rootUrl||''),rootId:String(p.rootId||''),

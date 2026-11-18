@@ -11,7 +11,7 @@
 
 ### Live evidence synchronization
 
-The browser calls `GET /api/evidence`, a server-to-server gateway to Apps Script `listEvidence`. The new GAS scans the Google Drive folders configured under **Plans!G** in the existing spreadsheet. It returns every accessible subfolder and file recursively, including names, Drive URLs, paths and modification dates. The website refreshes when opened or when **รีเฟรชข้อมูล** is pressed, and attempts another refresh every 60 seconds while the Evidence page remains visible.
+The browser calls `GET /api/evidence`, a server-to-server gateway to Apps Script `listEvidence`. GAS caches folder metadata for up to **40 seconds** to limit Google Drive requests from frequent visitors; the **Refresh** button uses `?refresh=1` to bypass this cache. The new GAS scans the Google Drive folders configured under **Plans!G** in the existing spreadsheet. It returns every accessible subfolder and file recursively, including names, Drive URLs, paths and modification dates. The website refreshes when opened or when **รีเฟรชข้อมูล** is pressed, and attempts another refresh every 60 seconds while the Evidence page remains visible.
 
 **Google Sheets is still the source of truth for Gantt activities. The Drive folder contents are not duplicated in Sheets.** Existing `Attachments` remains a separate list of activity-specific links and is not automatically mapped to the Drive's folder hierarchy.
 
