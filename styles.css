@@ -697,3 +697,14 @@ body{font-size:15px;line-height:1.5}
 .v2-plan-card.disabled,.v2-plan-card:disabled{cursor:default;opacity:.65}
 .v2-plan-card:disabled:hover{transform:none;box-shadow:none;border-color:#dce6f0}
 .v2-plan-card:focus-visible,.v2-drive-item a:focus-visible,.v2-home-actions button:focus-visible{outline:3px solid #eeb06a;outline-offset:2px}
+
+
+/* V2 uses four mobile navigation destinations rather than two. */
+@media(max-width:870px){
+ .mobile-nav{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .mobile-nav button{font-size:12.5px;min-width:0}
+}
+@media(max-width:420px){
+ .mobile-nav button{font-size:11.8px;padding:5px 2px}
+ .mobile-nav button .symbol{font-size:19px}
+}
