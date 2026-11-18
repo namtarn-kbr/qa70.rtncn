@@ -708,3 +708,61 @@ body{font-size:15px;line-height:1.5}
  .mobile-nav button{font-size:11.8px;padding:5px 2px}
  .mobile-nav button .symbol{font-size:19px}
 }
+
+
+/* Evidence explorer v2.1 — true Google Drive-style folders */
+.v3-evidence-heading{padding:17px 20px;flex-direction:row;align-items:center}
+.v3-evidence-heading h1{margin:0;font-size:23px;color:#214261;line-height:1.35}
+.v3-drive-toolbar{display:flex;gap:10px;align-items:stretch;margin:0 0 14px}
+.v3-drive-toolbar .v2-evidence-search{min-height:44px}
+.v3-drive-toolbar select{border:1px solid #d6e2ee;border-radius:9px;background:#fff;color:#3b5975;padding:7px 12px;font:600 13px Sarabun,"TH Sarabun New",Tahoma,sans-serif;min-width:140px;cursor:pointer}
+.v3-drive-collections{display:flex;flex-direction:column;gap:16px}
+.v3-drive-panel{--plan-color:#427ead;overflow:hidden;background:#fff;border:1px solid #dbe5ee;border-radius:14px;box-shadow:0 3px 12px #14385e08}
+.v3-explorer-top{background:#f8fafc;min-height:59px;padding:13px 17px;border-left:5px solid var(--plan-color);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.v3-explorer-title{display:flex;align-items:center;gap:10px;min-width:0}
+.v3-explorer-title h2{font-size:17px;font-weight:700;color:#203e5b;margin:0}
+.v3-plan-bullet{display:block;width:12px;height:12px;flex:none;border-radius:4px;background:var(--plan-color);box-shadow:0 0 0 4px color-mix(in srgb,var(--plan-color) 12%,white)}
+.v3-open-drive{font-size:12px;font-weight:700;text-decoration:none;color:#366d97;white-space:nowrap;border:1px solid #cbdce9;border-radius:8px;background:#fff;padding:7px 11px}
+.v3-open-drive:hover{color:#164a78;background:#eff6fb}
+.v3-drive-crumbs{padding:8px 15px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;min-height:39px;border-top:1px solid #edf1f5;border-bottom:1px solid #e3ebf3;background:#fff}
+.v3-crumb-segment{display:inline-flex;align-items:center;gap:5px;min-width:0}
+.v3-crumb-sep{color:#95a8ba;font-size:19px;line-height:1}
+.v3-crumb-btn{font:600 13px Sarabun,"TH Sarabun New",Tahoma,sans-serif;color:#607b93;background:none;border:0;border-radius:6px;padding:4px 7px;cursor:pointer;max-width:330px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v3-crumb-btn:hover{color:#1b597f;background:#edf5fc}
+.v3-crumb-btn.current{color:#183e5b;font-weight:700;background:color-mix(in srgb,var(--plan-color) 9%,white)}
+.v3-explorer-list{display:flex;flex-direction:column;min-height:52px}
+.v3-explorer-row{display:flex;align-items:center;gap:15px;text-align:left;min-width:0;width:100%;min-height:67px;padding:11px 18px;background:#fff;border:0;border-bottom:1px solid #edf1f5;cursor:pointer;text-decoration:none;font-family:Sarabun,"TH Sarabun New",Tahoma,sans-serif;transition:background-color .13s ease}
+.v3-explorer-row:last-child{border-bottom:0}
+.v3-explorer-row:hover{background:color-mix(in srgb,var(--plan-color) 5%,white)}
+.v3-explorer-row:focus-visible,.v3-crumb-btn:focus-visible,.v3-open-drive:focus-visible{outline:3px solid color-mix(in srgb,var(--plan-color) 55%,white);outline-offset:-3px;position:relative;z-index:1}
+.v3-explorer-row.unavailable{opacity:.55;cursor:default}
+.v3-item-icon{width:46px;height:46px;flex:none;border-radius:11px;display:grid;place-items:center}
+.v3-item-icon svg{width:27px;height:27px}
+.v3-item-icon.folder{background:color-mix(in srgb,var(--plan-color) 12%,white);color:var(--plan-color)}
+.v3-item-icon.file{background:#ecf2f8;color:#526e8a}
+.v3-item-copy{display:flex;flex-direction:column;min-width:0;flex:1;gap:4px}
+.v3-item-copy strong{color:#24435e;font-size:15px;font-weight:650;line-height:1.45;overflow-wrap:anywhere}
+.v3-item-copy small{color:#8196a9;font-size:12px;line-height:1.35}
+.v3-item-arrow{color:#6c8dab;font-size:24px;line-height:1;display:grid;place-items:center;width:28px;flex:none}
+.v3-explorer-row:hover .v3-item-arrow{color:var(--plan-color)}
+.v3-explorer-footer{border-top:1px solid #edf2f6;background:#fbfcfe;padding:8px 18px;text-align:right;color:#8195a8;font-size:11.5px}
+.v3-explorer-empty{padding:27px 20px;text-align:center;color:#8397a9;font-size:13px}
+@media(max-width:600px){
+ .v3-evidence-heading{padding:13px 14px}
+ .v3-evidence-heading h1{font-size:20px}
+ .v3-evidence-heading .btn{font-size:12px;padding:8px 11px}
+ .v3-drive-toolbar{gap:7px}
+ .v3-drive-toolbar select{min-width:118px;font-size:12px;padding:7px 6px}
+ .v3-explorer-top{padding:11px 12px;min-height:53px}
+ .v3-explorer-title h2{font-size:15px}
+ .v3-open-drive{padding:6px 8px;font-size:11.5px}
+ .v3-drive-crumbs{padding:7px 8px}
+ .v3-crumb-btn{max-width:170px;font-size:12.5px;padding:4px}
+ .v3-explorer-row{min-height:66px;padding:10px 12px;gap:11px}
+ .v3-item-icon{width:42px;height:42px}
+ .v3-item-icon svg{width:25px;height:25px}
+ .v3-item-copy strong{font-size:14px}
+ .v3-item-copy small{font-size:11.5px}
+ .v3-item-arrow{font-size:22px}
+}
+@media(prefers-reduced-motion:reduce){.v3-explorer-row{transition:none}}

@@ -1,5 +1,19 @@
 # QA 2570 — Version 2 (Evidence-first Hybrid Portal)
 
+## Google Drive-like folder navigation (Evidence Explorer v2.1)
+
+The evidence library now displays **only the immediate contents of each plan's current folder**:
+- At a plan root, users see its direct subfolders first, followed by any direct files.
+- Clicking a folder row navigates inside it within the QA website, without opening a new tab.
+- Breadcrumbs (plan → folder → nested folder) allow users to return to any parent.
+- Clicking a file row opens the original Google Drive file in a new tab, respecting Drive permissions.
+- Folder and file icons have distinct shapes and larger click targets; folder accents follow each plan's existing blue/orange/green/purple palette.
+- Search only filters the current folder contents. It does not flatten nested files into the root.
+- Folder-first order is preserved whether sorting by Thai name or modification date.
+- The explanatory "automatic refresh every 60 seconds" UI text and unnecessary file-filter controls have been removed, but background refresh and the manual Refresh button remain.
+
+This feature uses the existing GAS v4 `rootId`, `parentId`, `id` and `kind` metadata; no GAS or Google Sheets schema migration is required. A parent-less legacy item with depth 0 may be displayed at the root; for correct hierarchy, deploy GAS v4.
+
 ## Changes (18 November 2026)
 
 - New **Home Portal** with plan cards, evidence shortcut and upcoming activities.
